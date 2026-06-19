@@ -65,21 +65,25 @@ Keys are the primary progression currency within a dungeon.
 Dungeon combat is the original math battle concept: **solve a math problem → attack an enemy**. The trebuchet mode is a separate pillar that builds a physics-puzzle layer on top of this same idea; the dungeon is the direct form.
 
 ### Core loop (per turn)
-1. Enemy appears with a health bar; a math problem is displayed
+1. Math problem is displayed
 2. Player answers the problem
-3. **Correct answer** → player deals a hit (reduces enemy HP)
-4. **Wrong answer** → player skips their turn (loses the attack; enemy acts or waits)
-5. Repeat until enemy HP reaches 0 → enemy defeated, key charge drops
+3. **Enemy always attacks** — player must dodge regardless of answer
+4. **Correct answer** → player also deals a hit (reduces enemy HP)
+5. **Wrong answer** → player cannot attack that turn; must still dodge the enemy's attack
+6. Repeat until enemy HP reaches 0 → enemy defeated, key charge drops
+
+Combat has two distinct layers:
+- **Math** (offensive) — answering correctly is how you deal damage
+- **Dodge** (defensive) — a separate action every turn regardless of whether you answered correctly
 
 ### Health bars
-- **Enemies** have HP bars — multiple correct answers may be needed to defeat them
-- **Player** has a HP bar — taking damage (TBD: when does player take damage?) reduces it
-- **Open question:** When does the enemy deal damage to the player? On skipped turns? On a timer? Each round automatically?
+- **Enemies** have HP bars — multiple correct answers needed to defeat them
+- **Player** has a HP bar — failing to dodge enemy attacks reduces it
 
 ### Open questions
-- Does the enemy automatically attack on the player's skipped turn, or does skipping just waste the turn with no consequence?
-- Do bosses have more HP than standard enemies, or do they also have unique attack patterns?
-- Do problem types or difficulty change per enemy within a section, or are they uniform?
+- What is the dodge mechanic? (Timing-based button press, directional input, mini-game?)
+- Do bosses have unique attack patterns / harder dodges, or just more HP?
+- Do problem types or difficulty change per enemy, or are they uniform per tier?
 - Are there different combat rules per dungeon tier or enemy type?
 
 ---
@@ -129,7 +133,7 @@ These serve as a visual preview of the game world to orient the player.
 
 | # | Question | Priority |
 |---|----------|----------|
-| 1 | Does a skipped turn (wrong answer) cause the enemy to deal damage to the player? | **Critical** |
+| 1 | What is the dodge mechanic? (Timing press, directional input, mini-game?) | **Critical** |
 | 2 | What are keys used for (what do they unlock)? | High |
 | 3 | What math skills does each dungeon tier test? | High |
 | 4 | What are the rewards per tier? | High |
