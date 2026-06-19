@@ -80,8 +80,14 @@ Combat has two distinct layers:
 - **Enemies** have HP bars — multiple correct answers needed to defeat them
 - **Player** has a HP bar — failing to dodge enemy attacks reduces it
 
+### Dodge mechanic (Undertale-style)
+- After each turn, the enemy attacks in a contained arena box
+- Player controls a small soul/avatar with arrow keys or WASD
+- Enemy projectiles or attack patterns fly through the box — player must move to avoid them
+- Getting hit reduces player HP
+- Attack patterns can escalate per dungeon tier and enemy type (bosses get more complex patterns)
+
 ### Open questions
-- What is the dodge mechanic? (Timing-based button press, directional input, mini-game?)
 - Do bosses have unique attack patterns / harder dodges, or just more HP?
 - Do problem types or difficulty change per enemy, or are they uniform per tier?
 - Are there different combat rules per dungeon tier or enemy type?
@@ -133,7 +139,7 @@ These serve as a visual preview of the game world to orient the player.
 
 | # | Question | Priority |
 |---|----------|----------|
-| 1 | What is the dodge mechanic? (Timing press, directional input, mini-game?) | **Critical** |
+| 1 | Do bosses have unique/harder attack patterns, or just more HP? | High |
 | 2 | What are keys used for (what do they unlock)? | High |
 | 3 | What math skills does each dungeon tier test? | High |
 | 4 | What are the rewards per tier? | High |
