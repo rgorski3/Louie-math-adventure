@@ -64,16 +64,21 @@ Keys are the primary progression currency within a dungeon.
 
 Dungeon combat is the original math battle concept: **solve a math problem → attack an enemy**. The trebuchet mode is a separate pillar that builds a physics-puzzle layer on top of this same idea; the dungeon is the direct form.
 
-### Core loop (per enemy encounter)
-1. Enemy appears; a math problem is displayed
+### Core loop (per turn)
+1. Enemy appears with a health bar; a math problem is displayed
 2. Player answers the problem
-3. Correct answer → player deals a hit / defeats the enemy
-4. Incorrect answer → TBD (miss? enemy attacks back? retry?)
+3. **Correct answer** → player deals a hit (reduces enemy HP)
+4. **Wrong answer** → player skips their turn (loses the attack; enemy acts or waits)
+5. Repeat until enemy HP reaches 0 → enemy defeated, key charge drops
+
+### Health bars
+- **Enemies** have HP bars — multiple correct answers may be needed to defeat them
+- **Player** has a HP bar — taking damage (TBD: when does player take damage?) reduces it
+- **Open question:** When does the enemy deal damage to the player? On skipped turns? On a timer? Each round automatically?
 
 ### Open questions
-- What happens on a wrong answer? (miss only, or does the enemy deal damage to the player?)
-- Does the player have HP / a health bar?
-- Do enemies require multiple correct answers to defeat (HP bar), or is each enemy single-hit?
+- Does the enemy automatically attack on the player's skipped turn, or does skipping just waste the turn with no consequence?
+- Do bosses have more HP than standard enemies, or do they also have unique attack patterns?
 - Do problem types or difficulty change per enemy within a section, or are they uniform?
 - Are there different combat rules per dungeon tier or enemy type?
 
@@ -124,16 +129,15 @@ These serve as a visual preview of the game world to orient the player.
 
 | # | Question | Priority |
 |---|----------|----------|
-| 1 | What happens on a wrong answer? (miss, player takes damage, retry?) | **Critical** |
-| 2 | Does the player have HP / a health bar? | **Critical** |
-| 3 | Single-hit enemies or multi-hit (HP bar)? | High |
-| 4 | What are keys used for (what do they unlock)? | High |
-| 5 | What math skills does each dungeon tier test? | High |
-| 6 | What are the rewards per tier? | High |
-| 7 | Identity and design of the helper NPC | Medium |
-| 8 | Purpose of revisiting completed sections | Medium |
-| 9 | Does the NPC appear beyond the tutorial? | Low |
-| 10 | Exact key charge values (drop amounts, threshold) | Low |
+| 1 | Does a skipped turn (wrong answer) cause the enemy to deal damage to the player? | **Critical** |
+| 2 | What are keys used for (what do they unlock)? | High |
+| 3 | What math skills does each dungeon tier test? | High |
+| 4 | What are the rewards per tier? | High |
+| 5 | Do bosses have unique attack patterns, or just more HP? | Medium |
+| 6 | Identity and design of the helper NPC | Medium |
+| 7 | Purpose of revisiting completed sections | Medium |
+| 8 | Does the NPC appear beyond the tutorial? | Low |
+| 9 | Exact key charge values (drop amounts, threshold) | Low |
 
 ---
 
