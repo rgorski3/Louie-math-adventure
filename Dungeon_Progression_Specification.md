@@ -1,13 +1,13 @@
 # Math Kingdom — Dungeon Progression Specification
 
-> **Status:** Draft (v0.2, 2026-06-19)
-> **Scope:** Dungeon mode is a distinct game mode from the trebuchet mechanic. These are two separate gameplay pillars.
+> **Status:** Draft (v0.3, 2026-06-19)
+> **Scope:** Dungeon mode is the primary math battle experience. The trebuchet is a separate physics-puzzle mode that layers on top of the same math battle concept.
 
 ---
 
 ## Overview
 
-Dungeon mode is the core exploration and combat experience in Math Kingdom. Players advance through a series of themed dungeons of increasing difficulty, solving math problems to defeat enemies, collecting keys, and unlocking new sections and tiers via boss encounters.
+Dungeon mode is the core math battle experience in Math Kingdom — the original concept the game is built around. Players advance through themed dungeons by solving math problems to defeat enemies, collecting keys, and unlocking new sections and tiers through boss encounters. The trebuchet mode is a separate gameplay pillar that expands on this same math-battle idea with a physics layer; the dungeon is the base form.
 
 ---
 
@@ -60,15 +60,22 @@ Keys are the primary progression currency within a dungeon.
 
 ---
 
-## Combat Mechanic (Dungeon-Specific)
+## Combat Mechanic
 
-> **Note:** The trebuchet mode is a separate game pillar. Dungeon combat uses its own mechanic.
+Dungeon combat is the original math battle concept: **solve a math problem → attack an enemy**. The trebuchet mode is a separate pillar that builds a physics-puzzle layer on top of this same idea; the dungeon is the direct form.
 
-**Open questions (high priority — needed before implementation):**
-- What is the dungeon combat mechanic? How does the player attack enemies?
-- How does math gate progress? (Correct answer = hit, wrong answer = miss? Or something else?)
-- Do enemies have HP bars requiring multiple correct answers to defeat?
-- Are there different combat rules per enemy type or dungeon tier?
+### Core loop (per enemy encounter)
+1. Enemy appears; a math problem is displayed
+2. Player answers the problem
+3. Correct answer → player deals a hit / defeats the enemy
+4. Incorrect answer → TBD (miss? enemy attacks back? retry?)
+
+### Open questions
+- What happens on a wrong answer? (miss only, or does the enemy deal damage to the player?)
+- Does the player have HP / a health bar?
+- Do enemies require multiple correct answers to defeat (HP bar), or is each enemy single-hit?
+- Do problem types or difficulty change per enemy within a section, or are they uniform?
+- Are there different combat rules per dungeon tier or enemy type?
 
 ---
 
@@ -117,15 +124,16 @@ These serve as a visual preview of the game world to orient the player.
 
 | # | Question | Priority |
 |---|----------|----------|
-| 1 | What is the dungeon combat mechanic? | **Critical** |
-| 2 | What are keys used for (what do they unlock)? | High |
-| 3 | What math skills does each dungeon tier test? | High |
-| 4 | What are the rewards per tier? | High |
-| 5 | Identity and design of the helper NPC | Medium |
-| 6 | Purpose of revisiting completed sections | Medium |
-| 7 | Does the NPC appear beyond the tutorial? | Low |
-| 8 | Exact key charge values (drop amounts, threshold) | Low |
-| 9 | Enemy HP — single-hit or multi-hit? | Depends on Q1 |
+| 1 | What happens on a wrong answer? (miss, player takes damage, retry?) | **Critical** |
+| 2 | Does the player have HP / a health bar? | **Critical** |
+| 3 | Single-hit enemies or multi-hit (HP bar)? | High |
+| 4 | What are keys used for (what do they unlock)? | High |
+| 5 | What math skills does each dungeon tier test? | High |
+| 6 | What are the rewards per tier? | High |
+| 7 | Identity and design of the helper NPC | Medium |
+| 8 | Purpose of revisiting completed sections | Medium |
+| 9 | Does the NPC appear beyond the tutorial? | Low |
+| 10 | Exact key charge values (drop amounts, threshold) | Low |
 
 ---
 
@@ -133,7 +141,7 @@ These serve as a visual preview of the game world to orient the player.
 
 | System | Status | Notes |
 |--------|--------|-------|
-| Trebuchet mode | Separate pillar | Not used inside dungeons |
+| Trebuchet mode | Separate pillar | Expands on the math battle concept with a physics layer; not the dungeon mechanic itself |
 | Math problem engine | Shared | Dungeon combat should reuse the problem generator with tier-appropriate difficulty |
 | Hint system (Math_Kingdom_Design_Summary) | Deferred | Planned currency-costed hints apply to dungeon too |
 | Supabase backend | Deferred | Needed for key/progress persistence across sessions |
