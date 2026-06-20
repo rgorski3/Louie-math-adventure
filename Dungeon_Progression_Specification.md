@@ -98,9 +98,35 @@ Bosses have unique, thematic attack patterns that reflect their character — no
 | Ice | Ice Serpent | Curved winding path through the arena — follows an unpredictable curve, not a straight line |
 | Poison | Venomous Centipede | Long segmented body winds slowly through the arena — entire body is the hazard, player must avoid full length as it snakes past |
 | Wind | Gale Wraith | Wind blades bounce off arena walls and ricochet at new angles — player must track multiple blades at once |
-| **Red Eye of Chaos** | **Red Eye of Chaos** | Harnesses the power of Jupiter's Great Red Storm. The eye appears at the center of the arena and extends rotating storm arms outward like a pinwheel — player threads between the arms as they sweep continuously. Rotation speed increases as boss takes damage. Periodically the eye pulses and fires a shockwave ring outward — player must dodge the ring while still avoiding the spinning arms. Two simultaneous layers: rotation (constant) + pulse rings (interrupt). Most chaotic pattern in the game. |
+| **Red Eye of Chaos** | **Red Eye of Chaos** | See full design below. |
 
 **Unlock condition — Red Eye of Chaos:** Requires **1,000 total correct answers** across all dungeons (not in a row). Tracks cumulative lifetime progress. The final boss is a reward for mastery earned over time.
+
+---
+
+### Red Eye of Chaos — Full Design
+
+#### Character Design (artist-provided)
+- Stick figure humanoid, floating slightly off the ground
+- Both hands gripping a red katana
+- Wavy cape
+- Two mismatched eyes:
+  - Left eye: small, green — almost unassuming
+  - Right eye: large, like the Great Red Storm of Jupiter — the storm IS the eye
+- The character IS the boss; the storm eye is built into the design rather than a separate arena element
+
+#### Combat style
+- Uses the red katana in creative ways (slash patterns, projectile beams)
+- Fires blasts of red energy (storm power channeled through the sword)
+- Multi-phase fight — Phase 1 design confirmed above; further phases TBD
+
+#### Phase 1 — attack patterns (TBD, to be designed around sword + red energy blasts)
+
+**Open questions:**
+- What are the Phase 1 attack patterns specifically?
+- How many phases does the fight have?
+- What triggers the phase transition (HP threshold)?
+- Does the visual design change between phases (e.g., storm eye grows, cape tears, etc.)?
 
 Each boss is mechanically distinct: different axes, speeds, and patterns so no two fights feel the same. Standard enemies use simpler generic projectiles; boss fights are the design showcase for each tier.
 
