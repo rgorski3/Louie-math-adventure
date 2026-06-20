@@ -85,12 +85,21 @@ Combat has two distinct layers:
 - Player controls a small soul/avatar with arrow keys or WASD
 - Enemy projectiles or attack patterns fly through the box — player must move to avoid them
 - Getting hit reduces player HP
-- Attack patterns can escalate per dungeon tier and enemy type (bosses get more complex patterns)
+
+### Boss attack patterns
+Bosses have unique, thematic attack patterns that reflect their character — not just more HP.
+
+| Dungeon | Boss | Attack Pattern |
+|---------|------|----------------|
+| White / Stone | Golem | Fist slams down through the arena |
+| Fire | TBD | TBD (fire-themed) |
+| Ice | TBD | TBD (ice-themed) |
+
+Standard enemies have simpler, generic projectile patterns. Boss fights are the design showcase for each tier.
 
 ### Open questions
-- Do bosses have unique attack patterns / harder dodges, or just more HP?
 - Do problem types or difficulty change per enemy, or are they uniform per tier?
-- Are there different combat rules per dungeon tier or enemy type?
+- Do standard enemies also have thematic attack patterns, or just bosses?
 
 ---
 
@@ -139,7 +148,9 @@ These serve as a visual preview of the game world to orient the player.
 
 | # | Question | Priority |
 |---|----------|----------|
-| 1 | Do bosses have unique/harder attack patterns, or just more HP? | High |
+| 1 | Do standard enemies have thematic attacks, or just bosses? | Medium |
+| 2 | Fire dungeon boss identity and attack pattern | Medium |
+| 3 | Ice dungeon boss identity and attack pattern | Medium |
 | 2 | What are keys used for (what do they unlock)? | High |
 | 3 | What math skills does each dungeon tier test? | High |
 | 4 | What are the rewards per tier? | High |
