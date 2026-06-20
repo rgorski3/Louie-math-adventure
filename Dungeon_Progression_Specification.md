@@ -15,12 +15,13 @@ Dungeon mode is the core math battle experience in Math Kingdom — the original
 
 Dungeons are unlocked sequentially. Each tier introduces a new visual theme, enemy types, and better rewards.
 
-| Tier | Theme | Description | Enemies |
-|------|-------|-------------|---------|
-| 1 | White / Stone | Entry-level dungeon; basic enemies, forgiving difficulty | TBD |
-| 2 | Fire | Mid-tier; flame-themed enemies, higher math difficulty | TBD |
-| 3 | Ice | High-tier; frost-themed enemies, harder problems | TBD |
-| 4+ | TBD | Strongest enemies; endgame content | TBD |
+| Tier | Theme | Boss | Description |
+|------|-------|------|-------------|
+| 1 | White / Stone | Golem | Entry-level; basic enemies, forgiving difficulty |
+| 2 | Fire | Inferno Knight | Flame-themed enemies, higher math difficulty |
+| 3 | Ice | Ice Serpent | Frost-themed enemies, harder problems |
+| 4 | Poison | Venomous Centipede | Toxic-themed enemies, complex patterns |
+| 5 | Wind | Gale Wraith | Hardest enemies; endgame content |
 
 **Open questions:**
 - What specific math skills does each tier test? (e.g., Tier 1 = multiplication, Tier 2 = division, Tier 3 = fractions?)
@@ -91,11 +92,13 @@ Bosses have unique, thematic attack patterns that reflect their character — no
 
 | Dungeon | Boss | Attack Pattern |
 |---------|------|----------------|
-| White / Stone | Golem | Fist slams down through the arena |
-| Fire | TBD | TBD (fire-themed) |
-| Ice | TBD | TBD (ice-themed) |
+| White / Stone | Golem | Fist slams down through the arena (slow, wide, vertical) |
+| Fire | Inferno Knight | Flaming sword slashes diagonally — two cuts per turn in a cross pattern |
+| Ice | Ice Serpent | Curved winding path through the arena — follows an unpredictable curve, not a straight line |
+| Poison | Venomous Centipede | Long segmented body winds slowly through the arena — entire body is the hazard, player must avoid full length as it snakes past |
+| Wind | Gale Wraith | Wind blades bounce off arena walls and ricochet at new angles — player must track multiple blades at once |
 
-Standard enemies have simpler, generic projectile patterns. Boss fights are the design showcase for each tier.
+Each boss is mechanically distinct: different axes, speeds, and patterns so no two fights feel the same. Standard enemies use simpler generic projectiles; boss fights are the design showcase for each tier.
 
 ### Open questions
 - Do problem types or difficulty change per enemy, or are they uniform per tier?
@@ -149,8 +152,13 @@ These serve as a visual preview of the game world to orient the player.
 | # | Question | Priority |
 |---|----------|----------|
 | 1 | Do standard enemies have thematic attacks, or just bosses? | Medium |
-| 2 | Fire dungeon boss identity and attack pattern | Medium |
-| 3 | Ice dungeon boss identity and attack pattern | Medium |
+| 2 | What math skills does each dungeon tier test? | High |
+| 3 | What are the rewards per tier? | High |
+| 4 | What are keys used for (what do they unlock)? | High |
+| 5 | Purpose of revisiting completed sections | Medium |
+| 6 | Identity and design of the helper NPC | Medium |
+| 7 | Does the NPC appear beyond the tutorial? | Low |
+| 8 | Exact key charge values (drop amounts, threshold) | Low |
 | 2 | What are keys used for (what do they unlock)? | High |
 | 3 | What math skills does each dungeon tier test? | High |
 | 4 | What are the rewards per tier? | High |
