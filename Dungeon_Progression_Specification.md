@@ -120,13 +120,34 @@ Bosses have unique, thematic attack patterns that reflect their character — no
 - Fires blasts of red energy (storm power channeled through the sword)
 - Multi-phase fight — Phase 1 design confirmed above; further phases TBD
 
-#### Phase 1 — attack patterns (TBD, to be designed around sword + red energy blasts)
+#### Phase 1 — Sword & Energy Blasts
+- Uses the red katana in creative attack patterns (slashes, sweeps, energy beams through the sword)
+- Fires blasts of red energy
+- All existing boss attack patterns apply (see boss table above)
+- Player can deal damage normally
 
-**Open questions:**
-- What are the Phase 1 attack patterns specifically?
-- How many phases does the fight have?
-- What triggers the phase transition (HP threshold)?
-- Does the visual design change between phases (e.g., storm eye grows, cape tears, etc.)?
+#### Phase 2 — The Storm Awakens
+**Visual transformation:**
+- A massive vortex erupts behind him
+- The small green eye is gone — his entire face is now the storm eye
+- Grows 4 additional energy arms → **6 arms total**
+- Continues firing energy blasts alongside arm attacks
+
+**Special mechanic — Immune Phase:**
+- When Phase 2 begins, the boss is **immune to damage**
+- The player must land **6 correct answers** (6 charged hits) to break the immunity
+- Each correct answer does not damage the boss — instead it charges the player's soul
+- The player's soul visually cycles through **ROYGBIV** colors with each charge:
+  - Hit 1 → Red
+  - Hit 2 → Orange
+  - Hit 3 → Yellow
+  - Hit 4 → Green
+  - Hit 5 → Blue / Indigo
+  - Hit 6 → Violet — soul fully charged, immunity breaks
+- After the 6th hit the player gains full power and can now deal damage to the boss
+- The soul remains rainbow / ROYGBIV-cycling for the remainder of the fight
+
+**Phase transition trigger:** TBD — HP threshold at which Phase 1 becomes Phase 2 (e.g., 50% HP)
 
 Each boss is mechanically distinct: different axes, speeds, and patterns so no two fights feel the same. Standard enemies use simpler generic projectiles; boss fights are the design showcase for each tier.
 
