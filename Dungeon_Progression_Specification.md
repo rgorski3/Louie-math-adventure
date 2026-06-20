@@ -21,7 +21,8 @@ Dungeons are unlocked sequentially. Each tier introduces a new visual theme, ene
 | 2 | Fire | Inferno Knight | Flame-themed enemies, higher math difficulty |
 | 3 | Ice | Ice Serpent | Frost-themed enemies, harder problems |
 | 4 | Poison | Venomous Centipede | Toxic-themed enemies, complex patterns |
-| 5 | Wind | Gale Wraith | Hardest enemies; endgame content |
+| 5 | Wind | Gale Wraith | Hardest regular dungeon; endgame content |
+| 6 | ??? | **Red Eye of Chaos** | Secret final tier — only unlocks after 1,000 correct answers total (not in a row) |
 
 **Open questions:**
 - What specific math skills does each tier test? (e.g., Tier 1 = multiplication, Tier 2 = division, Tier 3 = fractions?)
@@ -97,6 +98,9 @@ Bosses have unique, thematic attack patterns that reflect their character — no
 | Ice | Ice Serpent | Curved winding path through the arena — follows an unpredictable curve, not a straight line |
 | Poison | Venomous Centipede | Long segmented body winds slowly through the arena — entire body is the hazard, player must avoid full length as it snakes past |
 | Wind | Gale Wraith | Wind blades bounce off arena walls and ricochet at new angles — player must track multiple blades at once |
+| **Red Eye of Chaos** | **Red Eye of Chaos** | Harnesses the power of Jupiter's Great Red Storm. The eye appears at the center of the arena and extends rotating storm arms outward like a pinwheel — player threads between the arms as they sweep continuously. Rotation speed increases as boss takes damage. Periodically the eye pulses and fires a shockwave ring outward — player must dodge the ring while still avoiding the spinning arms. Two simultaneous layers: rotation (constant) + pulse rings (interrupt). Most chaotic pattern in the game. |
+
+**Unlock condition — Red Eye of Chaos:** Requires **1,000 total correct answers** across all dungeons (not in a row). Tracks cumulative lifetime progress. The final boss is a reward for mastery earned over time.
 
 Each boss is mechanically distinct: different axes, speeds, and patterns so no two fights feel the same. Standard enemies use simpler generic projectiles; boss fights are the design showcase for each tier.
 
