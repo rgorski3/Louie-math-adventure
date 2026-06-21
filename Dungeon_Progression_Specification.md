@@ -202,22 +202,15 @@ These serve as a visual preview of the game world to orient the player.
 
 | # | Question | Priority |
 |---|----------|----------|
-| 1 | Do standard enemies have thematic attacks, or just bosses? | Medium |
-| 2 | What math skills does each dungeon tier test? | High |
-| 3 | What are the rewards per tier? | High |
-| 4 | What are keys used for (what do they unlock)? | High |
-| 5 | Purpose of revisiting completed sections | Medium |
-| 6 | Identity and design of the helper NPC | Medium |
-| 7 | Does the NPC appear beyond the tutorial? | Low |
-| 8 | Exact key charge values (drop amounts, threshold) | Low |
-| 2 | What are keys used for (what do they unlock)? | High |
-| 3 | What math skills does each dungeon tier test? | High |
-| 4 | What are the rewards per tier? | High |
-| 5 | Do bosses have unique attack patterns, or just more HP? | Medium |
-| 6 | Identity and design of the helper NPC | Medium |
-| 7 | Purpose of revisiting completed sections | Medium |
+| 1 | What math skills does each dungeon tier test? (multiplication → division → fractions etc.?) | High |
+| 2 | What are the rewards per tier? (gold, cosmetics, legendary items?) | High |
+| 3 | What are keys used for? (unlock sections, chests, doors?) | High |
+| 4 | Phase 1→2 transition HP threshold for Red Eye of Chaos | High |
+| 5 | Do standard enemies have thematic attacks, or just bosses? | Medium |
+| 6 | Purpose of revisiting completed sections (farming, achievements, replay?) | Medium |
+| 7 | Identity and design of the helper NPC | Medium |
 | 8 | Does the NPC appear beyond the tutorial? | Low |
-| 9 | Exact key charge values (drop amounts, threshold) | Low |
+| 9 | Exact key charge drop values and full-key threshold | Low |
 
 ---
 
