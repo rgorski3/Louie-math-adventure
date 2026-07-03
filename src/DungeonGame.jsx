@@ -19,6 +19,39 @@ const C = {
 const ROYGBIV = ['#ff0000','#ff7700','#ffff00','#00cc00','#0066ff','#4400bb','#9900cc'];
 const ROYGBIV_NAMES = ['Red','Orange','Yellow','Green','Blue','Indigo','Violet'];
 
+// ── Audio (Web Audio API — no external files) ────
+let _actx = null;
+const actx = () => {
+  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  return _actx;
+};
+const tone = (freq, dur, type = 'sine', vol = 0.22, delay = 0) => {
+  try {
+    const c = actx(); const t = c.currentTime + delay;
+    const o = c.createOscillator(); const g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + dur);
+  } catch (_) {}
+};
+const playCorrect = () => { tone(440, 0.07); tone(880, 0.18, 'sine', 0.18, 0.07); };
+const playWrong = () => tone(160, 0.22, 'triangle', 0.2);
+const playHit = () => {
+  try {
+    const c = actx(); const t = c.currentTime;
+    const buf = c.createBuffer(1, ~~(c.sampleRate * 0.12), c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const s = c.createBufferSource(); const g = c.createGain();
+    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 140;
+    s.buffer = buf; s.connect(f); f.connect(g); g.connect(c.destination);
+    g.gain.value = 0.65; s.start(t);
+  } catch (_) {}
+};
+const playDefeat = () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.28, 'sine', 0.2, i * 0.17));
+const playPhaseTransition = () => [880, 660, 440, 330].forEach((f, i) => tone(f, 0.28, 'sawtooth', 0.16, i * 0.35));
+
 // ── Math generators ─────────────────────────────
 const GEN = {
   mult_easy() {
@@ -418,6 +451,63 @@ function drawRedEye(ctx, cx, cy, t, bossPhase, roygbivIdx, immune) {
   ctx.globalAlpha = 1;
 }
 
+// ── Tier background art ──────────────────────────
+function drawBackground(ctx, boss, t) {
+  switch (boss.id) {
+    case 'gargoyle':
+      ctx.fillStyle = 'rgba(100,100,100,0.12)';
+      for (let i = 0; i < 12; i++) {
+        const bx = (i * 97 + t * 18) % CW;
+        const by = (t * 22 + i * 63) % (ARENA_Y - 10);
+        ctx.fillRect(~~bx, ~~by, 3, 3);
+      }
+      break;
+    case 'drake':
+      ctx.fillStyle = 'rgba(255,80,0,0.18)';
+      for (let i = 0; i < 14; i++) {
+        const ex = (i * 57 + Math.sin(t * 1.3 + i) * 25 + 100) % CW;
+        const ey = BOSS_CY + 60 - (t * 35 + i * 33) % 200;
+        if (ey > 0 && ey < ARENA_Y) ctx.fillRect(~~ex, ~~ey, 3, 3);
+      }
+      break;
+    case 'specter':
+      ctx.fillStyle = 'rgba(150,200,255,0.18)';
+      for (let i = 0; i < 16; i++) {
+        const sx = (i * 53 + Math.sin(t * 0.8 + i * 1.2) * 20 + 50) % CW;
+        const sy = (t * 20 + i * 40) % ARENA_Y;
+        ctx.fillRect(~~sx, ~~sy, 2, 2);
+      }
+      break;
+    case 'hydra':
+      ctx.fillStyle = 'rgba(0,180,0,0.15)';
+      for (let i = 0; i < 10; i++) {
+        const dx = 80 + i * 65;
+        const dy = (t * 40 + i * 29) % ARENA_Y;
+        ctx.fillRect(~~dx, ~~dy, 3, 6);
+      }
+      break;
+    case 'sovereign':
+      ctx.globalAlpha = 0.07;
+      ctx.strokeStyle = '#aaddff'; ctx.lineWidth = 1;
+      for (let i = 0; i < 8; i++) {
+        const sy = 20 + i * 26;
+        const sx = (t * 80 + i * 100) % (CW + 100);
+        ctx.beginPath(); ctx.moveTo(sx - 60, sy); ctx.lineTo(sx, sy); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      break;
+    case 'red_eye':
+      ctx.globalAlpha = 0.06 + Math.sin(t * 2) * 0.03;
+      ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        const r = 30 + i * 35 + (t * 25 + i * 40) % 100;
+        ctx.beginPath(); ctx.arc(BOSS_CX, BOSS_CY - 10, r, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      break;
+  }
+}
+
 // ── Main component ──────────────────────────────
 export default function DungeonGame({ onBack }) {
   // ── Persistence ────────────────────────────────
@@ -484,6 +574,11 @@ export default function DungeonGame({ onBack }) {
   const startMathRef = useRef(null);
   const victoryRef = useRef(null);
 
+  // Phase transition overlay {startTs, endTs, lines:[]}
+  const transitionRef = useRef(null);
+  // Turn counter for difficulty scaling
+  const turnCountRef = useRef(0);
+
   // ── Keyboard ───────────────────────────────────
   useEffect(() => {
     const keys = keysRef.current;
@@ -532,6 +627,7 @@ export default function DungeonGame({ onBack }) {
     combatPhaseRef.current = 'summary';
     setCombatPhase('summary');
     bulletsRef.current = [];
+    turnCountRef.current += 1;
 
     const boss = activeBossRef.current;
     const correct = lastCorrectRef.current;
@@ -541,6 +637,7 @@ export default function DungeonGame({ onBack }) {
     if (boss.id === 'red_eye' && bossPhaseRef.current === 2 && immuneRef.current) {
       // Immune: charge ROYGBIV
       if (correct) {
+        playCorrect();
         const newIdx = roygbivRef.current + 1;
         roygbivRef.current = newIdx;
         setRoygbivDisplay(newIdx);
@@ -555,15 +652,18 @@ export default function DungeonGame({ onBack }) {
           note = `Soul charged: ${ROYGBIV_NAMES[newIdx - 1]} (${newIdx}/7). Keep going!`;
         }
       } else {
+        playWrong();
         note = `Wrong answer — soul charge failed. ${roygbivRef.current}/7 charged.`;
       }
     } else {
       if (correct) {
+        playCorrect();
         dmg = 1;
         const saves2 = savesRef.current;
         persist({ ...saves2, totalCorrect: (saves2.totalCorrect || 0) + 1 });
         note = `💥 Hit! ${boss.name} takes 1 damage.`;
       } else {
+        playWrong();
         note = `Wrong answer — no damage dealt.`;
       }
     }
@@ -574,10 +674,17 @@ export default function DungeonGame({ onBack }) {
       setBossHpDisplay(Math.max(0, newHp));
       if (newHp <= 0) {
         if (boss.id === 'red_eye' && bossPhaseRef.current === 1) {
-          // Phase transition
-          note = `💀 Phase 1 defeated! Red Eye TRANSFORMS...`;
+          // Phase transition — trigger overlay + sound
+          note = `Phase 1 defeated! Red Eye TRANSFORMS...`;
           setTurnNote(note);
+          playPhaseTransition();
+          const now = performance.now();
+          transitionRef.current = {
+            startTs: now, endTs: now + 2200,
+            lines: ['RED EYE TRANSFORMS!', '⚠ PHASE 2 — CHARGE YOUR SOUL'],
+          };
           setTimeout(() => {
+            transitionRef.current = null;
             bossPhaseRef.current = 2;
             bossHpRef.current = boss.phase2Hp;
             bossMaxRef.current = boss.phase2Hp;
@@ -592,6 +699,7 @@ export default function DungeonGame({ onBack }) {
           }, 2200);
           return;
         }
+        playDefeat();
         note += ' DEFEATED!';
         setTurnNote(note);
         setTimeout(() => victoryRef.current(boss), 1400);
@@ -634,9 +742,10 @@ export default function DungeonGame({ onBack }) {
           b.y > ARENA_Y - 50 && b.y < ARENA_Y + ARENA_H + 50
         );
 
-        // Spawn wave
+        // Spawn wave — interval decreases with turns (difficulty scaling)
         waveTimerRef.current += dt;
-        if (boss && waveTimerRef.current >= 1.8) {
+        const waveInterval = Math.max(0.9, 1.8 - Math.floor(turnCountRef.current / 5) * 0.15);
+        if (boss && waveTimerRef.current >= waveInterval) {
           waveTimerRef.current = 0;
           const atk = boss.attacks[~~(Math.random() * boss.attacks.length)];
           bulletsRef.current.push(...spawnWave(atk));
@@ -652,6 +761,7 @@ export default function DungeonGame({ onBack }) {
               const newH = heartsRef.current - 1;
               heartsRef.current = newH;
               setHeartsDisplay(newH);
+              playHit();
               hitGraceRef.current = 0.7;
               bulletsRef.current = [];
               if (newH <= 0) {
@@ -672,6 +782,9 @@ export default function DungeonGame({ onBack }) {
       // ── Canvas clear ───────────────────────────
       ctx.fillStyle = boss?.bgDark ?? '#080808';
       ctx.fillRect(0, 0, CW, CH);
+
+      // ── Tier background art ────────────────────
+      if (boss) drawBackground(ctx, boss, t);
 
       // ── Boss sprite ────────────────────────────
       if (boss) {
@@ -755,6 +868,25 @@ export default function DungeonGame({ onBack }) {
         }
       }
 
+      // ── Phase transition overlay ───────────────
+      const tr = transitionRef.current;
+      if (tr && ts < tr.endTs) {
+        const prog = (ts - tr.startTs) / (tr.endTs - tr.startTs);
+        const flash = Math.sin(prog * Math.PI * 10) > 0;
+        ctx.fillStyle = flash ? 'rgba(180,0,0,0.55)' : 'rgba(0,0,0,0.72)';
+        ctx.fillRect(0, 0, CW, CH);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ff2200';
+        ctx.font = 'bold 28px "Courier New",monospace';
+        ctx.fillText(tr.lines[0] ?? '', CW / 2, CH / 2 - 18);
+        ctx.fillStyle = '#ffaaaa';
+        ctx.font = 'bold 15px "Courier New",monospace';
+        ctx.fillText(tr.lines[1] ?? '', CW / 2, CH / 2 + 18);
+        ctx.textAlign = 'left';
+      } else if (tr) {
+        transitionRef.current = null;
+      }
+
       rafRef.current = requestAnimationFrame(loop);
     }
 
@@ -775,6 +907,8 @@ export default function DungeonGame({ onBack }) {
     waveTimerRef.current = 0;
     hitGraceRef.current = 0;
     soulRef.current = { x: ARENA_X + ARENA_W / 2, y: ARENA_Y + ARENA_H / 2 };
+    turnCountRef.current = 0;
+    transitionRef.current = null;
 
     setBossId(boss.id);
     setBossHpDisplay(boss.maxHp);
