@@ -265,7 +265,7 @@ function newProb() {
 // ──────────────────────────────────────────────
 // COMPONENT
 // ──────────────────────────────────────────────
-export default function MathKingdom() {
+export default function MathKingdom({ onBack }) {
   const cvsRef   = useRef(null);
   const rafRef   = useRef(null);
   const tsRef    = useRef(null);
@@ -503,8 +503,18 @@ export default function MathKingdom() {
         color: C.gold, fontFamily: '"Courier New", monospace',
         fontSize: 20, fontWeight: 'bold', letterSpacing: 5,
         marginBottom: 6, textShadow: `0 0 12px ${C.gold}`,
+        display: 'flex', alignItems: 'center', gap: 16,
       }}>
         ⚔ MATH KINGDOM ⚔
+        {onBack && (
+          <button onClick={onBack} style={{
+            background: 'transparent', border: '2px solid #444', color: '#666',
+            fontFamily: '"Courier New",monospace', fontWeight: 'bold',
+            fontSize: 10, padding: '2px 8px', cursor: 'pointer', letterSpacing: 0,
+          }}>
+            ← BACK
+          </button>
+        )}
       </div>
 
       {/* Game canvas */}
