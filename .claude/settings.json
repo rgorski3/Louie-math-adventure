@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.jsx|*.js) out=$(npm run lint --silent 2>&1); code=$?; if [ $code -ne 0 ]; then printf '%s\\n' \"$out\" >&2; exit 2; fi ;; esac",
+            "statusMessage": "Linting changed file..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "out=$( (npm run lint --silent && npm run build --silent) 2>&1 ); code=$?; if [ $code -ne 0 ]; then printf '%s\\n' \"$out\" >&2; exit 2; fi",
+            "statusMessage": "Running lint + build gate..."
+          }
+        ]
+      }
+    ]
+  }
+}

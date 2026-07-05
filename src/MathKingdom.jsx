@@ -10,7 +10,6 @@ const GROUND_Y   = 360;
 const PIVOT_X    = 110, PIVOT_Y = 300;
 const LONG_ARM   = 95,  SHORT_ARM = 38;
 const LOADED_DEG = 330; // long arm: lower-right (counterweight raised upper-left)
-const FIRED_DEG  = 110; // long arm: upper-left (counterweight fallen lower-right)
 const TOTAL_ROT  = 140; // CCW degrees traversed
 // Arm at 90° (straight up) = launch point. Occurs at progress = 120/140
 const LAUNCH_P   = 120 / 140;
@@ -273,7 +272,7 @@ export default function MathKingdom() {
 
   // All mutable game state lives in refs (animation loop reads them sync)
   const phaseRef   = useRef('PROBLEM');
-  const probRef    = useRef(newProb());
+  const probRef    = useRef(null);
   const cwRef      = useRef('');
   const angleRef   = useRef(55);
   const trajRef    = useRef([]);
@@ -283,11 +282,18 @@ export default function MathKingdom() {
   const outcomeRef = useRef(null);
 
   // React state drives UI re-renders only
-  const [phase,  setPhase]  = useState('PROBLEM');
-  const [prob,   setProb]   = useState(probRef.current);
-  const [cw,     setCw]     = useState('');
-  const [angle,  setAngle]  = useState(55);
-  const [result, setResult] = useState(null);
+  const [phase,   setPhase]   = useState('PROBLEM');
+  const [prob,    setProb]    = useState(newProb);
+  const [cw,      setCw]      = useState('');
+  const [angle,   setAngle]   = useState(55);
+  const [result,  setResult]  = useState(null);
+  const [outcome, setOutcome] = useState(null);
+
+  // Keep outcomeRef (read by the animation loop) and outcome state (read by JSX) in sync
+  const setOutcomeBoth = useCallback(v => {
+    outcomeRef.current = v;
+    setOutcome(v);
+  }, []);
 
   // ── Animation loop ──────────────────────────
   useEffect(() => {
@@ -360,9 +366,14 @@ export default function MathKingdom() {
     };
   }, []);
 
+  // Keep probRef (read by stable handlers below) in sync with prob state
+  useEffect(() => {
+    probRef.current = prob;
+  }, [prob]);
+
   // ── Recompute preview trajectory ────────────
   useEffect(() => {
-    const v0 = v0From(parseFloat(cwRef.current), probRef.current.ans);
+    const v0 = v0From(parseFloat(cwRef.current), prob.ans);
     if (v0 && phase === 'AIM') {
       trajRef.current = calcTraj(v0, angle);
     } else if (phase !== 'FIRING' && phase !== 'RESULT') {
@@ -386,11 +397,11 @@ export default function MathKingdom() {
     armPRef.current  = 0;
     projIRef.current = 0;
     ptclsRef.current = [];
-    outcomeRef.current = null;
+    setOutcomeBoth(null);
 
     if (err > 0.20) {
       // ── CATASTROPHIC ──
-      outcomeRef.current = 'CATASTROPHIC';
+      setOutcomeBoth('CATASTROPHIC');
       ptclsRef.current   = mkExplosion(PIVOT_X, PIVOT_Y - 20);
       phaseRef.current   = 'FIRING';
       setPhase('FIRING');
@@ -416,8 +427,8 @@ export default function MathKingdom() {
     const dur = Math.max((traj.length / 62 + 0.25) * 1000 + 600, 2000);
     toRef.current = setTimeout(() => {
       const { type, lx } = checkTraj(traj);
-      outcomeRef.current = type;
-      let msg = '';
+      setOutcomeBoth(type);
+      let msg;
       if (type === 'HIT') {
         ptclsRef.current = mkSuccess(TARGET_X, GROUND_Y - 52);
         msg = '🎯 DIRECT HIT! Your math was spot on!';
@@ -435,45 +446,44 @@ export default function MathKingdom() {
       setPhase('RESULT');
       setResult({ type, msg });
     }, dur);
-  }, []);
+  }, [setOutcomeBoth]);
 
   const goAim = useCallback(() => {
     armPRef.current  = 0;
     projIRef.current = 0;
     ptclsRef.current = [];
-    outcomeRef.current = null;
+    setOutcomeBoth(null);
     setResult(null);
     const v0 = v0From(parseFloat(cwRef.current), probRef.current.ans);
     if (v0) trajRef.current = calcTraj(v0, angleRef.current);
     phaseRef.current = 'AIM';
     setPhase('AIM');
-  }, []);
+  }, [setOutcomeBoth]);
 
   const goProblem = useCallback(() => {
     armPRef.current  = 0;
     projIRef.current = 0;
     ptclsRef.current = [];
-    outcomeRef.current = null;
+    setOutcomeBoth(null);
     trajRef.current = [];
     setResult(null);
     phaseRef.current = 'PROBLEM';
     setPhase('PROBLEM');
-  }, []);
+  }, [setOutcomeBoth]);
 
   const goNext = useCallback(() => {
     const p = newProb();
-    probRef.current  = p;
     cwRef.current    = '';
     angleRef.current = 55;
     armPRef.current  = 0;
     projIRef.current = 0;
     ptclsRef.current = [];
-    outcomeRef.current = null;
+    setOutcomeBoth(null);
     trajRef.current  = [];
     setProb(p); setCw(''); setAngle(55); setResult(null);
     phaseRef.current = 'PROBLEM';
     setPhase('PROBLEM');
-  }, []);
+  }, [setOutcomeBoth]);
 
   // ── Styles ──────────────────────────────────
   const dlg = {
@@ -602,10 +612,10 @@ export default function MathKingdom() {
         {/* ── FIRING ── */}
         {phase === 'FIRING' && (
           <div style={{
-            color: outcomeRef.current === 'CATASTROPHIC' ? C.orange : C.gold,
+            color: outcome === 'CATASTROPHIC' ? C.orange : C.gold,
             fontSize: 15, letterSpacing: 2,
           }}>
-            {outcomeRef.current === 'CATASTROPHIC'
+            {outcome === 'CATASTROPHIC'
               ? '💥 STRUCTURAL FAILURE — CATASTROPHIC MISFIRE!'
               : '🚀 LAUNCHING...'}
           </div>
