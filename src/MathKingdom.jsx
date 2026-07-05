@@ -16,13 +16,43 @@ const LAUNCH_P   = 120 / 140;
 const LAUNCH_X   = PIVOT_X;           // arm at 90°: tip directly above pivot
 const LAUNCH_Y   = PIVOT_Y - LONG_ARM; // = 205
 
-// Level geometry
-const WALL_X     = 380, WALL_TOP = 175, WALL_W = 28;
-const TARGET_X   = 680, TARGET_R  = 30;
-
 // Physics (hand-rolled kinematics, pixel-space)
 const V0_OPT     = 450;  // px/s — correct counterweight gives this
 const GRAV       = 360;  // px/s²
+
+// ──────────────────────────────────────────────
+// LEVEL CONFIG — dungeon tiers + boss
+// Every geometry here was validated against calcTraj/checkTraj: the correct
+// answer (v0 = 450) has a contiguous band of ≥4 integer slider angles that
+// clear the wall and land in the target zone, and flat angles hit the wall
+// (arc discovery). Do not change numbers without re-running that validation.
+//   T1-L1 hit band 58°–61° · T1-L2 56°–60° · T1-L3 56°–59°
+//   T2-L1 55°–58° · T2-L2 54°–57° · T2-L3 53°–56° · BOSS 51°–55°
+// ──────────────────────────────────────────────
+const BOSS_NAME = 'THE WALL WARDEN';
+const LEVELS = [
+  { tier: 1, lvl: 1, wallX: 380, wallTop: 175, wallW: 28, targetX: 680, targetR: 30,
+    probs: { mps: [3, 4, 5],      rs: [4, 5, 6] } },
+  { tier: 1, lvl: 2, wallX: 380, wallTop: 165, wallW: 28, targetX: 695, targetR: 27,
+    probs: { mps: [4, 5, 6],      rs: [6, 7, 8] } },
+  { tier: 1, lvl: 3, wallX: 400, wallTop: 158, wallW: 28, targetX: 705, targetR: 25,
+    probs: { mps: [6, 7, 8],      rs: [6, 7, 8] } },
+  { tier: 2, lvl: 1, wallX: 410, wallTop: 150, wallW: 30, targetX: 715, targetR: 23,
+    probs: { mps: [6, 8, 9],      rs: [7, 8, 9] } },
+  { tier: 2, lvl: 2, wallX: 420, wallTop: 142, wallW: 30, targetX: 725, targetR: 21,
+    probs: { mps: [7, 8, 9, 12],  rs: [8, 9, 11] } },
+  { tier: 2, lvl: 3, wallX: 430, wallTop: 135, wallW: 32, targetX: 735, targetR: 19,
+    probs: { mps: [9, 11, 12],    rs: [8, 11, 12] } },
+  { boss: true, hp: 3, wallX: 450, wallTop: 128, wallW: 32, targetX: 745, targetR: 24,
+    // Per-hit escalation: index = hits already landed (0, 1, 2)
+    hitProbs: [
+      { mps: [11, 12, 13], rs: [9, 11, 12] },
+      { mps: [12, 13, 14], rs: [11, 12, 13] },
+      { mps: [13, 14, 15], rs: [12, 13, 14] },
+    ] },
+];
+const BOSS_IDX = LEVELS.length - 1;
+const LVLS_PER_TIER = 3;
 
 // Colours
 const C = {
@@ -71,15 +101,15 @@ function calcTraj(v0, deg) {
   }
   return pts;
 }
-function checkTraj(pts) {
+function checkTraj(pts, level) {
   for (let i = 1; i < pts.length; i++) {
     const { x, y } = pts[i], pp = pts[i - 1];
-    if (x >= WALL_X - WALL_W / 2 - 3 && x <= WALL_X + WALL_W / 2 + 3 && y >= WALL_TOP)
+    if (x >= level.wallX - level.wallW / 2 - 3 && x <= level.wallX + level.wallW / 2 + 3 && y >= level.wallTop)
       return { type: 'WALL' };
     if (y >= GROUND_Y && pp.y < GROUND_Y) {
       const f  = (GROUND_Y - pp.y) / (y - pp.y);
       const lx = pp.x + f * (x - pp.x);
-      return { type: Math.abs(lx - TARGET_X) <= TARGET_R ? 'HIT' : 'MISS', lx };
+      return { type: Math.abs(lx - level.targetX) <= level.targetR ? 'HIT' : 'MISS', lx };
     }
   }
   return { type: 'MISS', lx: pts.at(-1)?.x ?? GW };
@@ -108,40 +138,94 @@ function drawBg(ctx) {
   }
 }
 
-function drawWall(ctx) {
-  const wx = ~~(WALL_X - WALL_W / 2);
-  const wh = GROUND_Y - WALL_TOP;
-  ctx.fillStyle = C.wall; ctx.fillRect(wx, ~~WALL_TOP, WALL_W, wh);
+function drawWall(ctx, level) {
+  const wx = ~~(level.wallX - level.wallW / 2);
+  const wh = GROUND_Y - level.wallTop;
+  ctx.fillStyle = C.wall; ctx.fillRect(wx, ~~level.wallTop, level.wallW, wh);
   for (let row = 0; row * 16 < wh; row++) {
-    const ry  = ~~(WALL_TOP + row * 16);
+    const ry  = ~~(level.wallTop + row * 16);
     const off = (row % 2) * 10;
     ctx.fillStyle = C.wallDk;
-    ctx.fillRect(wx, ry, WALL_W, 2);
+    ctx.fillRect(wx, ry, level.wallW, 2);
     ctx.fillRect(wx + off + 5, ry + 2, 2, 14);
   }
-  ctx.fillStyle = C.wallLt; ctx.fillRect(wx, ~~WALL_TOP, 3, wh);
+  ctx.fillStyle = C.wallLt; ctx.fillRect(wx, ~~level.wallTop, 3, wh);
   for (let i = 0; i < 2; i++) {
-    ctx.fillStyle = C.wall;   ctx.fillRect(wx + i * 13, ~~WALL_TOP - 14, 10, 14);
-    ctx.fillStyle = C.wallDk; ctx.fillRect(wx + i * 13, ~~WALL_TOP - 14, 10, 2);
+    ctx.fillStyle = C.wall;   ctx.fillRect(wx + i * 13, ~~level.wallTop - 14, 10, 14);
+    ctx.fillStyle = C.wallDk; ctx.fillRect(wx + i * 13, ~~level.wallTop - 14, 10, 2);
   }
 }
 
-function drawTarget(ctx, hit) {
+function drawTarget(ctx, level, hit) {
+  const tx = ~~level.targetX;
+  const rOut = level.targetR - 4; // visual size tracks the hitbox
   ctx.fillStyle = C.woodDk;
-  ctx.fillRect(TARGET_X - 2, GROUND_Y - 54, 4, 54);
+  ctx.fillRect(tx - 2, GROUND_Y - 54, 4, 54);
   const rings = [
-    { r: 24, c: C.tR }, { r: 16, c: C.tG },
-    { r: 9,  c: C.tR }, { r: 4,  c: hit ? '#fff' : C.tG },
+    { r: rOut,             c: C.tR },
+    { r: ~~(rOut * 0.66),  c: C.tG },
+    { r: ~~(rOut * 0.4),   c: C.tR },
+    { r: 3,                c: hit ? '#fff' : C.tG },
   ];
   for (const { r, c } of rings) {
     ctx.fillStyle = c;
-    ctx.fillRect(TARGET_X - r, GROUND_Y - 52 - r, r * 2, r * 2);
+    ctx.fillRect(tx - r, GROUND_Y - 52 - r, r * 2, r * 2);
   }
   if (hit) {
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = C.gold;
-    ctx.fillRect(TARGET_X - 42, GROUND_Y - 100, 84, 78);
+    ctx.fillRect(tx - 42, GROUND_Y - 100, 84, 78);
     ctx.globalAlpha = 1;
+  }
+}
+
+function drawBoss(ctx, level, hp) {
+  const bx = ~~level.targetX, by = GROUND_Y;
+  if (hp <= 0) {
+    // Crumbled rubble + victory glow
+    ctx.fillStyle = C.wallDk; ctx.fillRect(bx - 26, by - 14, 52, 14);
+    ctx.fillStyle = C.wall;   ctx.fillRect(bx - 16, by - 24, 30, 10);
+    ctx.fillStyle = C.wall;   ctx.fillRect(bx - 32, by - 8,  14, 8);
+    ctx.fillStyle = C.wallLt; ctx.fillRect(bx + 4,  by - 20, 6, 6);
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(bx - 42, by - 74, 84, 66);
+    ctx.globalAlpha = 1;
+  } else {
+    // Stone golem body
+    ctx.fillStyle = C.wall;   ctx.fillRect(bx - 24, by - 56, 48, 56);
+    ctx.fillStyle = C.wallDk; ctx.fillRect(bx - 24, by - 56, 48, 4);
+    ctx.fillStyle = C.wallLt; ctx.fillRect(bx - 24, by - 56, 4, 56);
+    // Shoulders
+    ctx.fillStyle = C.wallDk;
+    ctx.fillRect(bx - 34, by - 48, 10, 30);
+    ctx.fillRect(bx + 24, by - 48, 10, 30);
+    // Eyes + mouth
+    ctx.fillStyle = C.red;
+    ctx.fillRect(bx - 14, by - 44, 8, 8);
+    ctx.fillRect(bx + 6,  by - 44, 8, 8);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(bx - 10, by - 26, 20, 5);
+    // Damage cracks appear as HP drops
+    const dmg = level.hp - hp;
+    ctx.fillStyle = C.wallDk;
+    if (dmg >= 1) { ctx.fillRect(bx - 20, by - 52, 3, 14); ctx.fillRect(bx - 18, by - 40, 3, 8); }
+    if (dmg >= 2) { ctx.fillRect(bx + 12, by - 30, 3, 16); ctx.fillRect(bx + 8,  by - 16, 3, 8); }
+  }
+  // HP pips (segmented squares, cream border, red fill → dark when spent)
+  const pipW = 14, gap = 6;
+  const total = level.hp;
+  const w  = total * pipW + (total - 1) * gap;
+  const x0 = ~~(bx - w / 2), y0 = by - 96;
+  ctx.font = 'bold 10px "Courier New",monospace';
+  ctx.fillStyle = C.gold;
+  ctx.fillText('BOSS', ~~(bx - 12), y0 - 6);
+  for (let i = 0; i < total; i++) {
+    const px = x0 + i * (pipW + gap);
+    ctx.fillStyle = C.dlgBdr;
+    ctx.fillRect(px - 2, y0 - 2, pipW + 4, pipW + 4);
+    ctx.fillStyle = i < hp ? C.red : '#181818';
+    ctx.fillRect(px, y0, pipW, pipW);
   }
 }
 
@@ -221,12 +305,22 @@ function renderParticles(ctx, ps) {
   ctx.globalAlpha = 1;
 }
 
-function drawLabels(ctx) {
+function drawLabels(ctx, level) {
   ctx.font = 'bold 10px "Courier New",monospace';
   ctx.fillStyle = C.gold;
-  ctx.fillText('TREBUCHET',   PIVOT_X - 34,  GH - 7);
-  ctx.fillText('CASTLE WALL', WALL_X - 36,   WALL_TOP - 18);
-  ctx.fillText('TARGET',      TARGET_X - 20, GROUND_Y - 66);
+  ctx.fillText('TREBUCHET',   PIVOT_X - 34,       GH - 7);
+  ctx.fillText('CASTLE WALL', level.wallX - 36,   level.wallTop - 18);
+  if (!level.boss) {
+    ctx.fillText('TARGET', level.targetX - 20, GROUND_Y - 66);
+  }
+  // HUD: tier/level progress (top-left)
+  ctx.font = 'bold 11px "Courier New",monospace';
+  ctx.fillText(
+    level.boss
+      ? `☠ BOSS — ${BOSS_NAME}`
+      : `TIER ${level.tier} · LEVEL ${level.lvl}/${LVLS_PER_TIER}`,
+    10, 16
+  );
 }
 
 // ──────────────────────────────────────────────
@@ -250,14 +344,24 @@ const mkSuccess = (x, y) =>
     life: 1, size: 4 + Math.random() * 8,
   }));
 
+const mkDeflect = (x, y) =>
+  Array.from({ length: 14 }, (_, i) => ({
+    x, y: y - 20,
+    vx: (Math.random() - 0.5) * 190,
+    vy: -40 - Math.random() * 160,
+    color: i % 2 === 0 ? '#9aa0a8' : C.star,
+    life: 1, size: 3 + Math.random() * 5,
+  }));
+
 // ──────────────────────────────────────────────
-// MATH PROBLEMS
+// MATH PROBLEMS — factor sets come from the level config
 // ──────────────────────────────────────────────
-function newProb() {
-  const mps = [6, 8, 9, 10, 12, 15];
-  const rs   = [7, 8, 9, 10, 11, 12];
-  const mp   = mps[~~(Math.random() * mps.length)];
-  const r    = rs [~~(Math.random() * rs.length)];
+function newProb(level, hitsLanded = 0) {
+  const set = level.boss
+    ? level.hitProbs[Math.min(hitsLanded, level.hitProbs.length - 1)]
+    : level.probs;
+  const mp = set.mps[~~(Math.random() * set.mps.length)];
+  const r  = set.rs [~~(Math.random() * set.rs.length)];
   return { mp, r, ans: mp * r };
 }
 
@@ -271,28 +375,36 @@ export default function MathKingdom() {
   const toRef    = useRef(null);
 
   // All mutable game state lives in refs (animation loop reads them sync)
-  const phaseRef   = useRef('PROBLEM');
-  const probRef    = useRef(null);
-  const cwRef      = useRef('');
-  const angleRef   = useRef(55);
-  const trajRef    = useRef([]);
-  const armPRef    = useRef(0);
-  const projIRef   = useRef(0);
-  const ptclsRef   = useRef([]);
-  const outcomeRef = useRef(null);
+  const phaseRef    = useRef('PROBLEM');
+  const probRef     = useRef(null);
+  const cwRef       = useRef('');
+  const angleRef    = useRef(55);
+  const trajRef     = useRef([]);
+  const armPRef     = useRef(0);
+  const projIRef    = useRef(0);
+  const ptclsRef    = useRef([]);
+  const outcomeRef  = useRef(null);
+  const levelIdxRef = useRef(0);
+  const bossHpRef   = useRef(LEVELS[BOSS_IDX].hp);
 
   // React state drives UI re-renders only
-  const [phase,   setPhase]   = useState('PROBLEM');
-  const [prob,    setProb]    = useState(newProb);
-  const [cw,      setCw]      = useState('');
-  const [angle,   setAngle]   = useState(55);
-  const [result,  setResult]  = useState(null);
-  const [outcome, setOutcome] = useState(null);
+  const [phase,    setPhase]    = useState('PROBLEM');
+  const [prob,     setProb]     = useState(() => newProb(LEVELS[0]));
+  const [cw,       setCw]       = useState('');
+  const [angle,    setAngle]    = useState(55);
+  const [result,   setResult]   = useState(null);
+  const [outcome,  setOutcome]  = useState(null);
+  const [levelIdx, setLevelIdx] = useState(0);
+  const [bossHp,   setBossHp]   = useState(LEVELS[BOSS_IDX].hp);
 
-  // Keep outcomeRef (read by the animation loop) and outcome state (read by JSX) in sync
+  // Keep refs (read by the animation loop) and state (read by JSX) in sync
   const setOutcomeBoth = useCallback(v => {
     outcomeRef.current = v;
     setOutcome(v);
+  }, []);
+  const setBossHpBoth = useCallback(v => {
+    bossHpRef.current = v;
+    setBossHp(v);
   }, []);
 
   // ── Animation loop ──────────────────────────
@@ -304,7 +416,8 @@ export default function MathKingdom() {
     function loop(ts) {
       const dt = Math.min((ts - (tsRef.current ?? ts)) / 1000, 0.05);
       tsRef.current = ts;
-      const ph = phaseRef.current;
+      const ph  = phaseRef.current;
+      const lvl = LEVELS[levelIdxRef.current];
 
       // Update particles
       for (const p of ptclsRef.current) {
@@ -328,8 +441,12 @@ export default function MathKingdom() {
       // ── Draw ──────────────────────────────
       ctx.clearRect(0, 0, GW, GH);
       drawBg(ctx);
-      drawWall(ctx);
-      drawTarget(ctx, outcomeRef.current === 'HIT');
+      drawWall(ctx, lvl);
+      if (lvl.boss) {
+        drawBoss(ctx, lvl, bossHpRef.current);
+      } else {
+        drawTarget(ctx, lvl, outcomeRef.current === 'HIT');
+      }
 
       const ap = (ph === 'FIRING' || ph === 'RESULT') ? armPRef.current : 0;
       drawTrebuchet(ctx, ap);
@@ -354,7 +471,7 @@ export default function MathKingdom() {
       }
 
       renderParticles(ctx, ptclsRef.current);
-      drawLabels(ctx);
+      drawLabels(ctx, lvl);
 
       rafRef.current = requestAnimationFrame(loop);
     }
@@ -390,6 +507,7 @@ export default function MathKingdom() {
   }, []);
 
   const handleFire = useCallback(() => {
+    const lvl      = LEVELS[levelIdxRef.current];
     const cwVal    = parseFloat(cwRef.current);
     const correct  = probRef.current.ans;
     const err      = cwError(cwVal, correct);
@@ -426,27 +544,41 @@ export default function MathKingdom() {
 
     const dur = Math.max((traj.length / 62 + 0.25) * 1000 + 600, 2000);
     toRef.current = setTimeout(() => {
-      const { type, lx } = checkTraj(traj);
+      const { type: geo, lx } = checkTraj(traj, lvl);
+      // Success gate: a geometric hit only counts when the answer is exactly
+      // right — otherwise the shot glances off (Marginal tier, no progress).
+      const type = geo === 'HIT' && cwVal !== correct ? 'DEFLECT' : geo;
       setOutcomeBoth(type);
       let msg;
       if (type === 'HIT') {
-        ptclsRef.current = mkSuccess(TARGET_X, GROUND_Y - 52);
-        msg = '🎯 DIRECT HIT! Your math was spot on!';
+        ptclsRef.current = mkSuccess(lvl.targetX, GROUND_Y - 52);
+        if (lvl.boss) {
+          const nh = bossHpRef.current - 1;
+          setBossHpBoth(nh);
+          msg = nh > 0
+            ? `🎯 DIRECT HIT! ${BOSS_NAME} cracks — ${nh} more hit${nh > 1 ? 's' : ''} to bring it down!`
+            : `⚔ ${BOSS_NAME} CRUMBLES! The dungeon is cleared — your math conquered the kingdom!`;
+        } else {
+          msg = '🎯 DIRECT HIT! Your math was spot on!';
+        }
+      } else if (type === 'DEFLECT') {
+        ptclsRef.current = mkDeflect(lvl.targetX, GROUND_Y - 52);
+        msg = `🛡 GLANCED OFF! The shot reached the target, but your counterweight isn't exact — redo the multiplication.`;
       } else if (type === 'WALL') {
         const under = cwVal < correct;
         msg = under
           ? `🧱 Hit the wall! Your counterweight is too light. Redo the multiplication.`
           : `🧱 Hit the wall! Try a steeper angle to arc over it.`;
       } else {
-        const d   = lx ? ~~Math.abs(lx - TARGET_X) : '?';
-        const dir = lx < TARGET_X ? 'short' : 'long';
+        const d   = lx ? ~~Math.abs(lx - lvl.targetX) : '?';
+        const dir = lx < lvl.targetX ? 'short' : 'long';
         msg = `Landed ${d}px ${dir} of the target. Check your counterweight math!`;
       }
       phaseRef.current = 'RESULT';
       setPhase('RESULT');
       setResult({ type, msg });
     }, dur);
-  }, [setOutcomeBoth]);
+  }, [setOutcomeBoth, setBossHpBoth]);
 
   const goAim = useCallback(() => {
     armPRef.current  = 0;
@@ -471,8 +603,12 @@ export default function MathKingdom() {
     setPhase('PROBLEM');
   }, [setOutcomeBoth]);
 
-  const goNext = useCallback(() => {
-    const p = newProb();
+  // Enter a level fresh (also used to restart the run after victory)
+  const startLevel = useCallback((idx) => {
+    const lvl = LEVELS[idx];
+    levelIdxRef.current = idx;
+    setLevelIdx(idx);
+    setBossHpBoth(LEVELS[BOSS_IDX].hp);
     cwRef.current    = '';
     angleRef.current = 55;
     armPRef.current  = 0;
@@ -480,7 +616,31 @@ export default function MathKingdom() {
     ptclsRef.current = [];
     setOutcomeBoth(null);
     trajRef.current  = [];
-    setProb(p); setCw(''); setAngle(55); setResult(null);
+    setProb(newProb(lvl)); setCw(''); setAngle(55); setResult(null);
+    phaseRef.current = 'PROBLEM';
+    setPhase('PROBLEM');
+  }, [setOutcomeBoth, setBossHpBoth]);
+
+  const advance = useCallback(() => {
+    startLevel(Math.min(levelIdxRef.current + 1, BOSS_IDX));
+  }, [startLevel]);
+
+  const resetRun = useCallback(() => {
+    startLevel(0);
+  }, [startLevel]);
+
+  // Next boss strike: keep boss HP and the player's dialed-in angle,
+  // deal a harder problem (escalates with hits already landed)
+  const nextStrike = useCallback(() => {
+    const lvl = LEVELS[levelIdxRef.current];
+    cwRef.current    = '';
+    armPRef.current  = 0;
+    projIRef.current = 0;
+    ptclsRef.current = [];
+    setOutcomeBoth(null);
+    trajRef.current  = [];
+    setProb(newProb(lvl, lvl.hp - bossHpRef.current));
+    setCw(''); setResult(null);
     phaseRef.current = 'PROBLEM';
     setPhase('PROBLEM');
   }, [setOutcomeBoth]);
@@ -500,6 +660,9 @@ export default function MathKingdom() {
     fontFamily: '"Courier New", monospace', fontWeight: 'bold',
     fontSize: 13, padding: '5px 15px', cursor: 'pointer', letterSpacing: 1,
   });
+
+  const curLevel = LEVELS[levelIdx];
+  const strikeNo = curLevel.boss ? curLevel.hp - bossHp + 1 : 0;
 
   return (
     <div style={{
@@ -534,13 +697,18 @@ export default function MathKingdom() {
         {/* ── PROBLEM ── */}
         {phase === 'PROBLEM' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ color: C.gold, fontSize: 12, letterSpacing: 3 }}>
-              ⚡ CALIBRATE TREBUCHET
+            <div style={{
+              color: curLevel.boss ? C.orange : C.gold,
+              fontSize: 12, letterSpacing: 3,
+            }}>
+              {curLevel.boss
+                ? `☠ BOSS FIGHT — ${BOSS_NAME} · STRIKE ${strikeNo}/${curLevel.hp}`
+                : `⚡ CALIBRATE TREBUCHET — TIER ${curLevel.tier} · LEVEL ${curLevel.lvl}/${LVLS_PER_TIER}`}
             </div>
             <div style={{ fontSize: 14, lineHeight: 1.7 }}>
               Your boulder weighs{' '}
               <span style={{ color: C.gold, fontWeight: 'bold' }}>{prob.mp}kg</span>.
-              To breach the castle wall, you need a force ratio of{' '}
+              To {curLevel.boss ? `wound ${BOSS_NAME}` : 'breach the castle wall'}, you need a force ratio of{' '}
               <span style={{ color: C.gold, fontWeight: 'bold' }}>{prob.r}×</span>.
               <br />
               What must your counterweight be?
@@ -628,15 +796,33 @@ export default function MathKingdom() {
               fontSize: 14, lineHeight: 1.6,
               color: result.type === 'HIT'
                 ? C.green
-                : result.type === 'CATASTROPHIC' ? C.orange : '#ff6060',
+                : result.type === 'DEFLECT'
+                  ? C.tG
+                  : result.type === 'CATASTROPHIC' ? C.orange : '#ff6060',
             }}>
               {result.msg}
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {result.type === 'HIT' ? (
-                <button onClick={goNext} style={btn(C.green, false)}>
-                  NEXT LEVEL ▶
-                </button>
+                curLevel.boss ? (
+                  bossHp <= 0 ? (
+                    <button onClick={resetRun} style={btn(C.gold, true)}>
+                      ⚔ VICTORY — PLAY AGAIN ↺
+                    </button>
+                  ) : (
+                    <button onClick={nextStrike} style={btn(C.orange, false)}>
+                      NEXT STRIKE ▶
+                    </button>
+                  )
+                ) : levelIdx === BOSS_IDX - 1 ? (
+                  <button onClick={advance} style={btn(C.orange, false)}>
+                    ☠ ENTER THE BOSS LAIR ▶
+                  </button>
+                ) : (
+                  <button onClick={advance} style={btn(C.green, false)}>
+                    NEXT LEVEL ▶
+                  </button>
+                )
               ) : (
                 <>
                   {result.type !== 'CATASTROPHIC' && (
