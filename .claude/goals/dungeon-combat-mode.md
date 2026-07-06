@@ -1,7 +1,7 @@
 # Goal Ledger: Dungeon Combat Mode (Tier 1 slice)
 
 Branch: `claude/dungeon-tiers-boss-design-ovz864`
-Status: **Tier 1 implemented; verification in progress** (2026-07-06). Mode select + full Stone Dungeon (3 sections × 4 enemies + boss doors + Golem finale) with the Undertale-style dodge arena. Lint/build green; smoke checks 1–3 below confirmed, full-tier autopilot running — this line will flip to COMPLETE when it finishes. Tiers 2–5 and the Red Eye of Chaos are NOT built yet (see spec).
+Status: **Tier 1 COMPLETE** — implemented and verified 2026-07-06. Mode select + full Stone Dungeon (3 sections × 4 enemies + boss doors + Golem finale) with the Undertale-style dodge arena. Lint/build green; 13-check end-to-end smoke run in Chromium (including a full-tier autopilot playthrough to TIER CLEAR) with zero failures and zero console errors. Tiers 2–5 and the Red Eye of Chaos are NOT built yet (see spec).
 
 Source of truth for the design: `Dungeon_Progression_Specification.md` (v0.4 — the four
 high-priority open questions were resolved with the user on 2026-07-06 and are marked
@@ -44,12 +44,14 @@ which is compiled out of production builds):
 - [x] Taking hits while answering wrong → player HP drains → DEFEAT screen; retry
       restarts the fight at full HP. (Note: passively standing still in Section 1
       rarely kills — rocks are sparse by design for the target age.)
-- [ ] Full Tier 1 autopilot: all 12 standard enemies + 3 bosses defeated, keys forged
-      and spent on boss doors each section, 3 badges earned, TIER CLEAR reached.
-- [ ] Golem fist-slam telegraphs + slams work and are dodgeable.
-- [ ] Replay resets to Section 1; ⬅ MENU returns to mode select; trebuchet mode still
+- [x] Full Tier 1 autopilot: all 12 standard enemies + 3 bosses defeated, keys forged
+      and spent on boss doors each section, 3 badges earned, TIER CLEAR reached
+      (autopilot finished with zero mid-run deaths — Tier 1 difficulty is fair).
+- [x] Golem fist-slam telegraphs + slams work and are dodgeable (autopilot exited
+      telegraphed columns and beat the Golem without dying).
+- [x] Replay resets to Section 1; ⬅ MENU returns to mode select; trebuchet mode still
       boots to Tier 1 · Level 1/3 (no regression).
-- [ ] Zero browser console errors across the run.
+- [x] Zero browser console errors across the run.
 
 ## Next steps (future sessions)
 
