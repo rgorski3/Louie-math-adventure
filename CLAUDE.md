@@ -1,12 +1,12 @@
 # Math Kingdom — Constraints
 
-Browser educational game teaching multiplication via trebuchet physics. React + Vite, Canvas 2D, no backend, no accounts. See `README.md` and `Math_Kingdom_Alpha_Plan.md` for full design context.
+Browser educational math game. React + Vite, Canvas 2D, no backend, no accounts. Two gameplay pillars behind a mode select in `src/App.jsx`: **Dungeon mode** (`src/DungeonMode.jsx` — math battles with an Undertale-style dodge arena; living spec: `Dungeon_Progression_Specification.md`) and **Trebuchet mode** (`src/MathKingdom.jsx` — physics siege puzzles). See `README.md` and `Math_Kingdom_Alpha_Plan.md` for full design context.
 
 ## Non-negotiable invariants
 
-- **Math must be non-bypassable.** For any level, a wrong counterweight answer must fail (hit the wall, or miss) at every reachable angle; only the correct answer + a discoverable angle range clears the wall and hits the target. If you add or change level geometry, re-derive this with the trajectory math (`calcTraj`/`checkTraj` in `src/MathKingdom.jsx`) — don't eyeball it.
-- **Three-tier outcome system stays intact**: Success (within `TARGET_R` of target), Marginal (`cwError <= 0.05`), Catastrophic (`cwError > 0.20`). Don't collapse these into a binary hit/miss.
-- **Undertale-inspired pixel art style**: dark navy/warm-earth palette (see `C` object in `MathKingdom.jsx`), `Courier New`/monospace only, zero `border-radius` anywhere, `imageSmoothingEnabled = false`, integer-snapped canvas coordinates (`~~x`).
+- **Math must be non-bypassable.** Trebuchet: for any level, a wrong counterweight answer must fail (wall, miss, or glance off) at every reachable angle; only the exactly-correct answer + a discoverable angle range scores a Success. If you add or change level geometry, re-derive this with the trajectory math (`calcTraj`/`checkTraj` in `src/MathKingdom.jsx`) — don't eyeball it. Dungeon: damage to an enemy only ever comes from an exactly-correct answer; a wrong answer never advances combat (the enemy still attacks, the player still dodges).
+- **Three-tier outcome system stays intact** (trebuchet): Success (within `TARGET_R` of target), Marginal (`cwError <= 0.05`), Catastrophic (`cwError > 0.20`). Don't collapse these into a binary hit/miss.
+- **Undertale-inspired pixel art style**: dark navy/warm-earth palette (the `C` object in `src/theme.js`, shared by both modes), `Courier New`/monospace only, zero `border-radius` anywhere, `imageSmoothingEnabled = false`, integer-snapped canvas coordinates (`~~x`).
 - **Refs vs. state**: mutable per-frame game data (position, trajectory, particles) lives in `useRef` and is read by the `requestAnimationFrame` loop — never read a ref's `.current` during React render (JSX or a hook's initializer argument). If a ref-held value needs to affect rendered output, mirror it into `useState` at the point it's written, or sync it via a `useEffect` keyed on the state. This is enforced by `eslint-plugin-react-hooks`'s `react-hooks/refs` rule — it is not stylistic, `npm run lint` will fail.
 - **Alpha scope**: no backend, no accounts, no persistent save state (session resets on reload) — this is deliberate, don't add persistence without discussing it first.
 
@@ -19,7 +19,7 @@ Browser educational game teaching multiplication via trebuchet physics. React + 
 
 ## Manual verification (no test suite)
 
-Because there's no automated test runner, any change to game logic (state transitions, physics, level flow) needs a manual smoke test before you claim it works: run `npm run dev`, drive the golden path (PROBLEM → AIM → FIRE → RESULT) with a correct answer, and separately trigger a Catastrophic result with a wildly wrong answer. Watch the browser console for errors. Don't rely on lint/build passing alone as evidence a UI change behaves correctly.
+Because there's no automated test runner, any change to game logic (state transitions, physics, level flow) needs a manual smoke test before you claim it works: run `npm run dev` and drive the golden path of whichever mode you touched. Trebuchet: PROBLEM → AIM → FIRE → RESULT with a correct answer, plus a Catastrophic result with a wildly wrong answer. Dungeon: map → fight → correct answer deals a hit after the dodge, wrong answer deals none, boss door consumes a key. Watch the browser console for errors. Don't rely on lint/build passing alone as evidence a UI change behaves correctly. (Dungeon combat exposes `window.__dd` in dev builds only, for driving the dodge arena from a test script.)
 
 ## Architecture checkpoints
 
