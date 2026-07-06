@@ -1,6 +1,6 @@
 # Math Kingdom — Dungeon Progression Specification
 
-> **Status:** Draft (v0.3, 2026-06-19)
+> **Status:** v0.4, 2026-07-06 — the four high-priority open questions are resolved (marked inline below) and the first slice is implemented: Tier 1 (Stone Dungeon, 3 sections + Golem) in `src/DungeonMode.jsx`, with a mode select screen in `src/App.jsx`. Tuning defaults live in `.claude/goals/dungeon-combat-mode.md`.
 > **Scope:** Dungeon mode is the primary math battle experience. The trebuchet is a separate physics-puzzle mode that layers on top of the same math battle concept.
 
 ---
@@ -24,9 +24,11 @@ Dungeons are unlocked sequentially. Each tier introduces a new visual theme, ene
 | 5 | Wind | Gale Wraith | Hardest regular dungeon; endgame content |
 | 6 | ??? | **Red Eye of Chaos** | Secret final tier — only unlocks after 1,000 correct answers total (not in a row) |
 
-**Open questions:**
-- What specific math skills does each tier test? (e.g., Tier 1 = multiplication, Tier 2 = division, Tier 3 = fractions?)
-- What are the concrete rewards per tier? (Gold, cosmetics, legendary items?)
+**Resolved 2026-07-06 (user):**
+- **Math skills per tier — skill ladder:** Tier 1 = multiplication, Tier 2 = division, Tier 3 = fractions, Tier 4 = decimals & percents, Tier 5 = mixed everything, Red Eye = mixed at max difficulty.
+- **Rewards:** keys + badges for now (session-scope; a pixel badge per section/tier cleared, shown on the map). Gold, cosmetics, and legendary items arrive with the Supabase backend later.
+
+**Still open:**
 - What do enemy types look like / what makes them thematically distinct beyond visuals?
 
 ---
@@ -58,7 +60,7 @@ Keys are the primary progression currency within a dungeon.
   - Standard enemy defeat: drops a small amount of key charge (exact values TBD)
   - Boss defeat: drops a significantly larger key charge amount
 - When key charge reaches a threshold (e.g., 100 charge = 1 key), the player earns a full key
-- **Open question:** What are keys used for? (Unlock sections, chests, doors, special content?)
+- **Resolved 2026-07-06 (user): keys open boss doors.** Each section's boss room is locked; challenging the boss costs 1 full key (earned from that section's enemy kills). The key is consumed once per section — retrying a lost boss fight does not cost another key (prevents a softlock when no enemies remain to farm).
 
 ---
 
@@ -147,7 +149,7 @@ Bosses have unique, thematic attack patterns that reflect their character — no
 - After the 6th hit the player gains full power and can now deal damage to the boss
 - The soul remains rainbow / ROYGBIV-cycling for the remainder of the fight
 
-**Phase transition trigger:** TBD — HP threshold at which Phase 1 becomes Phase 2 (e.g., 50% HP)
+**Phase transition trigger:** **Resolved 2026-07-06 (user): 50% HP.** Phase 1 becomes Phase 2 at the halfway point — equal time with the katana duel and the storm form, with the immune/ROYGBIV sequence landing mid-fight.
 
 Each boss is mechanically distinct: different axes, speeds, and patterns so no two fights feel the same. Standard enemies use simpler generic projectiles; boss fights are the design showcase for each tier.
 
@@ -202,10 +204,10 @@ These serve as a visual preview of the game world to orient the player.
 
 | # | Question | Priority |
 |---|----------|----------|
-| 1 | What math skills does each dungeon tier test? (multiplication → division → fractions etc.?) | High |
-| 2 | What are the rewards per tier? (gold, cosmetics, legendary items?) | High |
-| 3 | What are keys used for? (unlock sections, chests, doors?) | High |
-| 4 | Phase 1→2 transition HP threshold for Red Eye of Chaos | High |
+| 1 | ~~What math skills does each dungeon tier test?~~ **Resolved 2026-07-06: skill ladder** — ×, ÷, fractions, decimals/percents, mixed, Red Eye mixed-max | ~~High~~ Done |
+| 2 | ~~What are the rewards per tier?~~ **Resolved 2026-07-06: keys + badges for now**; gold/cosmetics/legendary with Supabase later | ~~High~~ Done |
+| 3 | ~~What are keys used for?~~ **Resolved 2026-07-06: boss doors** — 1 key per section boss, consumed once per section | ~~High~~ Done |
+| 4 | ~~Phase 1→2 transition HP threshold for Red Eye of Chaos~~ **Resolved 2026-07-06: 50% HP** | ~~High~~ Done |
 | 5 | Do standard enemies have thematic attacks, or just bosses? | Medium |
 | 6 | Purpose of revisiting completed sections (farming, achievements, replay?) | Medium |
 | 7 | Identity and design of the helper NPC | Medium |
