@@ -115,6 +115,44 @@ function checkTraj(pts, level) {
   return { type: 'MISS', lx: pts.at(-1)?.x ?? GW };
 }
 
+// Dev-only sanity check: re-derives what the LEVELS comment block above
+// claims by hand. Sweeps every level's angle range with the correct
+// velocity (expects a hit band) and with several wrong-velocity ratios
+// (expects none of them to geometrically land HIT). Runs once at module
+// load in dev builds only — no-op in production.
+function validateLevels() {
+  const ANGLE_MIN = 15, ANGLE_MAX = 80;
+  const WRONG_RATIOS = [0.7, 0.8, 0.9, 1.1, 1.2, 1.3];
+  LEVELS.forEach((lvl, i) => {
+    const label = lvl.boss ? 'BOSS' : `T${lvl.tier}-L${lvl.lvl}`;
+    const hitAngles = [];
+    for (let deg = ANGLE_MIN; deg <= ANGLE_MAX; deg++) {
+      if (checkTraj(calcTraj(V0_OPT, deg), lvl).type === 'HIT') hitAngles.push(deg);
+    }
+    if (hitAngles.length === 0) {
+      console.error(`[validateLevels] ${label} (index ${i}): no angle hits the target with the correct counterweight.`);
+      return;
+    }
+    let maxRun = 1, run = 1;
+    for (let j = 1; j < hitAngles.length; j++) {
+      run = hitAngles[j] === hitAngles[j - 1] + 1 ? run + 1 : 1;
+      maxRun = Math.max(maxRun, run);
+    }
+    if (maxRun < 2) {
+      console.warn(`[validateLevels] ${label} (index ${i}): hit band is a single angle (${hitAngles[0]}°) — no slider margin.`);
+    }
+    for (const ratio of WRONG_RATIOS) {
+      const wrongV0 = V0_OPT * ratio;
+      for (const deg of hitAngles) {
+        if (checkTraj(calcTraj(wrongV0, deg), lvl).type === 'HIT') {
+          console.error(`[validateLevels] ${label} (index ${i}): wrong counterweight (${ratio}x correct velocity) still hits at ${deg}°.`);
+        }
+      }
+    }
+  });
+}
+if (import.meta.env.DEV) validateLevels();
+
 // ──────────────────────────────────────────────
 // DRAWING
 // ──────────────────────────────────────────────
@@ -528,7 +566,7 @@ export default function MathKingdom() {
         setPhase('RESULT');
         setResult({
           type: 'CATASTROPHIC',
-          msg:  `💥 STRUCTURAL FAILURE! Way off — the trebuchet destroyed itself. The correct answer was ${correct}kg.`,
+          msg:  `💥 Way off the mark — the extra weight snapped the arm clean off. Good news: trebuchets rebuild fast. The correct answer was ${correct}kg.`,
         });
       }, 2400);
       return;
@@ -784,7 +822,7 @@ export default function MathKingdom() {
             fontSize: 15, letterSpacing: 2,
           }}>
             {outcome === 'CATASTROPHIC'
-              ? '💥 STRUCTURAL FAILURE — CATASTROPHIC MISFIRE!'
+              ? '💥 STRUCTURAL FAILURE — THE ARM GAVE OUT!'
               : '🚀 LAUNCHING...'}
           </div>
         )}
