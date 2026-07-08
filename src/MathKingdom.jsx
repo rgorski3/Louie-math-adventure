@@ -719,6 +719,7 @@ export default function MathKingdom() {
       ArrowRight: 'right', d: 'right', D: 'right',
     };
     const onDown = e => {
+      if (phaseRef.current !== 'DODGE') return;
       const dir = KEYMAP[e.key];
       if (!dir) return;
       if (e.key.startsWith('Arrow')) e.preventDefault();
