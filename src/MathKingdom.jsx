@@ -21,6 +21,20 @@ const V0_OPT     = 450;  // px/s — correct counterweight gives this
 const GRAV       = 360;  // px/s²
 
 // ──────────────────────────────────────────────
+// UNDERTALE-STYLE DODGE BATTLE BOX
+// After every non-catastrophic shot the target/boss counterattacks: a
+// bullet-hell box opens and the player must steer a heart soul clear of
+// falling rubble (regular levels) or telegraphed slam columns (boss).
+// ──────────────────────────────────────────────
+const BOX = { x: 220, y: 82, w: 360, h: 210 };
+const HEART_R      = 7;    // collision + draw half-size
+const HEART_SPEED   = 210; // px/s
+const PLAYER_MAX_HP = 3;
+const INVULN_MS     = 700;
+const DODGE_BASE_MS = 3400;
+const ROCK_R        = 8;
+
+// ──────────────────────────────────────────────
 // LEVEL CONFIG — dungeon tiers + boss
 // Every geometry here was validated against calcTraj/checkTraj: the correct
 // answer (v0 = 450) has a contiguous band of ≥4 integer slider angles that
@@ -77,6 +91,15 @@ const STARS = Array.from({ length: 55 }, (_, i) => ({
   a:  0.3 + (i % 4) * 0.18,
 }));
 
+// Distant background castle silhouette (deterministic, purely decorative)
+const CASTLE_SIL = [
+  { x: 40,  w: 22, h: 60 }, { x: 62,  w: 10, h: 40 },
+  { x: 90,  w: 30, h: 78 }, { x: 120, w: 10, h: 46 },
+  { x: 150, w: 18, h: 54 }, { x: 600, w: 20, h: 50 },
+  { x: 630, w: 34, h: 84 }, { x: 664, w: 12, h: 48 },
+  { x: 700, w: 22, h: 62 }, { x: 726, w: 12, h: 40 },
+];
+
 // ──────────────────────────────────────────────
 // PHYSICS
 // ──────────────────────────────────────────────
@@ -129,6 +152,13 @@ function drawBg(ctx) {
     ctx.fillRect(~~s.x, ~~s.y, s.sz, s.sz);
   }
   ctx.globalAlpha = 1;
+  // Distant castle silhouette for background depth
+  ctx.fillStyle = '#142338';
+  for (const t of CASTLE_SIL) {
+    ctx.fillRect(t.x, GROUND_Y - t.h, t.w, t.h);
+    ctx.fillRect(t.x - 2, GROUND_Y - t.h - 6, 4, 6);
+    ctx.fillRect(t.x + t.w - 2, GROUND_Y - t.h - 6, 4, 6);
+  }
   ctx.fillStyle = C.ground;  ctx.fillRect(0, GROUND_Y, GW, GH - GROUND_Y);
   ctx.fillStyle = C.groundTx; ctx.fillRect(0, GROUND_Y, GW, 4);
   ctx.fillStyle = C.groundTx;
@@ -138,7 +168,7 @@ function drawBg(ctx) {
   }
 }
 
-function drawWall(ctx, level) {
+function drawWall(ctx, level, ts = 0) {
   const wx = ~~(level.wallX - level.wallW / 2);
   const wh = GROUND_Y - level.wallTop;
   ctx.fillStyle = C.wall; ctx.fillRect(wx, ~~level.wallTop, level.wallW, wh);
@@ -154,6 +184,15 @@ function drawWall(ctx, level) {
     ctx.fillStyle = C.wall;   ctx.fillRect(wx + i * 13, ~~level.wallTop - 14, 10, 14);
     ctx.fillStyle = C.wallDk; ctx.fillRect(wx + i * 13, ~~level.wallTop - 14, 10, 2);
   }
+  // Flickering torch bracketed to the wall (purely decorative)
+  const tox = wx - 14, toy = ~~level.wallTop + 20;
+  ctx.fillStyle = C.woodDk; ctx.fillRect(tox, toy, 4, 16);
+  ctx.fillStyle = C.metal;  ctx.fillRect(tox - 2, toy - 3, 8, 4);
+  const flick = 0.7 + 0.3 * Math.abs(Math.sin(ts / 130));
+  ctx.globalAlpha = flick;
+  ctx.fillStyle = C.orange; ctx.fillRect(tox - 3, toy - 12, 10, 10);
+  ctx.fillStyle = C.gold;   ctx.fillRect(tox - 1, toy - 9, 6, 6);
+  ctx.globalAlpha = 1;
 }
 
 function drawTarget(ctx, level, hit) {
@@ -305,6 +344,84 @@ function renderParticles(ctx, ps) {
   ctx.globalAlpha = 1;
 }
 
+// Pixel-art heart (Undertale SOUL), built from a fixed bitmap so it stays
+// sharp at any scale — no strokes/arcs, matches the blocky art style.
+const HEART_BMP = [
+  ' ## ## ',
+  '#######',
+  '#######',
+  '#######',
+  ' ##### ',
+  '  ###  ',
+  '   #   ',
+];
+function drawHeart(ctx, cx, cy, scale, color) {
+  const rows = HEART_BMP.length, cols = HEART_BMP[0].length;
+  ctx.fillStyle = color;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (HEART_BMP[r][c] !== '#') continue;
+      ctx.fillRect(
+        ~~(cx - (cols * scale) / 2 + c * scale),
+        ~~(cy - (rows * scale) / 2 + r * scale),
+        scale, scale
+      );
+    }
+  }
+}
+
+function drawHpHud(ctx, hp, maxHp) {
+  const s = 3, gap = 6, w = maxHp * (s * 7 + gap) - gap;
+  const x0 = GW - w - 14, y0 = 22;
+  ctx.font = 'bold 10px "Courier New",monospace';
+  ctx.fillStyle = C.gold;
+  ctx.fillText('HP', x0 - 22, y0 + 6);
+  for (let i = 0; i < maxHp; i++) {
+    const cx = x0 + i * (s * 7 + gap) + (s * 7) / 2;
+    drawHeart(ctx, cx, y0, s, i < hp ? C.red : '#2a2a2a');
+  }
+}
+
+// ── Undertale-style dodge battle box ────────────
+function drawDodgeBox(ctx, box, heart, rocks, invuln, hp) {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(box.x, box.y, box.w, box.h);
+  ctx.strokeStyle = C.white; ctx.lineWidth = 3;
+  ctx.strokeRect(box.x + 1.5, box.y + 1.5, box.w - 3, box.h - 3);
+
+  for (const r of rocks) {
+    if (r.type === 'slam') {
+      if (r.telegraph > 0) {
+        ctx.globalAlpha = 0.35 + 0.25 * Math.sin(r.telegraph * 0.03);
+        ctx.fillStyle = C.red;
+        ctx.fillRect(~~(r.x - r.w / 2), box.y + 2, r.w, box.h - 4);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.fillStyle = C.wallDk;
+        ctx.fillRect(~~(r.x - r.w / 2), box.y + 2, r.w, box.h - 4);
+        ctx.fillStyle = C.wallLt;
+        ctx.fillRect(~~(r.x - r.w / 2), box.y + 2, r.w, 4);
+      }
+    } else {
+      ctx.fillStyle = C.wallDk;
+      ctx.fillRect(~~(r.x - ROCK_R), ~~(r.y - ROCK_R), ROCK_R * 2, ROCK_R * 2);
+      ctx.fillStyle = C.wallLt;
+      ctx.fillRect(~~(r.x - ROCK_R), ~~(r.y - ROCK_R), ROCK_R * 2, 3);
+    }
+  }
+
+  if (invuln <= 0 || Math.floor(invuln / 90) % 2 === 0) {
+    drawHeart(ctx, heart.x, heart.y, 3, hp > 0 ? C.red : '#555');
+  }
+
+  ctx.font = 'bold 11px "Courier New",monospace';
+  ctx.fillStyle = C.orange;
+  ctx.fillText('⚠ DODGE! ⚠', box.x + box.w / 2 - 38, box.y - 10);
+  ctx.font = 'bold 9px "Courier New",monospace';
+  ctx.fillStyle = '#888';
+  ctx.fillText('ARROWS / WASD', box.x + box.w / 2 - 42, box.y + box.h + 16);
+}
+
 function drawLabels(ctx, level) {
   ctx.font = 'bold 10px "Courier New",monospace';
   ctx.fillStyle = C.gold;
@@ -353,6 +470,53 @@ const mkDeflect = (x, y) =>
     life: 1, size: 3 + Math.random() * 5,
   }));
 
+const mkHitSpark = (x, y) =>
+  Array.from({ length: 10 }, (_, i) => ({
+    x, y,
+    vx: (Math.random() - 0.5) * 160,
+    vy: (Math.random() - 0.5) * 160,
+    color: i % 2 === 0 ? C.red : '#fff',
+    life: 1, size: 3 + Math.random() * 4,
+  }));
+
+// ──────────────────────────────────────────────
+// DODGE BOX SIMULATION — advances one frame of the bullet-hell dodge
+// segment. Boss fights get slow, wide, telegraphed "fist slam" columns
+// (per Dungeon_Progression_Specification's Golem attack pattern); regular
+// levels get simple falling rubble. Mutates `rocks` in place; returns
+// whether the heart was hit this frame.
+// ──────────────────────────────────────────────
+function spawnRock(box, isBoss) {
+  if (isBoss) {
+    const w = 60 + Math.random() * 30;
+    const x = box.x + w / 2 + Math.random() * (box.w - w);
+    return { type: 'slam', x, w, telegraph: 550 };
+  }
+  const x = box.x + ROCK_R + Math.random() * (box.w - ROCK_R * 2);
+  return { type: 'rock', x, y: box.y - ROCK_R, vy: 130 + Math.random() * 70 };
+}
+
+function stepDodge(box, heart, rocks, dt) {
+  let hit = false;
+  for (let i = rocks.length - 1; i >= 0; i--) {
+    const r = rocks[i];
+    if (r.type === 'slam') {
+      r.telegraph -= dt * 1000;
+      if (r.telegraph <= 0) {
+        r.activeMs = (r.activeMs ?? 0) + dt * 1000;
+        if (Math.abs(heart.x - r.x) <= r.w / 2 + HEART_R) hit = true;
+        if (r.activeMs > 220) rocks.splice(i, 1);
+      }
+    } else {
+      r.y += r.vy * dt;
+      const dx = heart.x - r.x, dy = heart.y - r.y;
+      if (dx * dx + dy * dy <= (ROCK_R + HEART_R) ** 2) hit = true;
+      if (r.y - ROCK_R > box.y + box.h) rocks.splice(i, 1);
+    }
+  }
+  return hit;
+}
+
 // ──────────────────────────────────────────────
 // MATH PROBLEMS — factor sets come from the level config
 // ──────────────────────────────────────────────
@@ -387,6 +551,17 @@ export default function MathKingdom() {
   const levelIdxRef = useRef(0);
   const bossHpRef   = useRef(LEVELS[BOSS_IDX].hp);
 
+  // Dodge battle box state (Undertale-style counterattack after every shot)
+  const playerHpRef   = useRef(PLAYER_MAX_HP);
+  const heartRef       = useRef({ x: BOX.x + BOX.w / 2, y: BOX.y + BOX.h / 2 });
+  const rocksRef       = useRef([]);
+  const keysRef        = useRef({});
+  const dodgeSpawnRef  = useRef(0);
+  const dodgeElapsedRef = useRef(0);
+  const invulnRef      = useRef(0);
+  const pendingResultRef = useRef(null);
+  const shakeRef       = useRef({ timer: 0, mag: 0 });
+
   // React state drives UI re-renders only
   const [phase,    setPhase]    = useState('PROBLEM');
   const [prob,     setProb]     = useState(() => newProb(LEVELS[0]));
@@ -396,6 +571,7 @@ export default function MathKingdom() {
   const [outcome,  setOutcome]  = useState(null);
   const [levelIdx, setLevelIdx] = useState(0);
   const [bossHp,   setBossHp]   = useState(LEVELS[BOSS_IDX].hp);
+  const [playerHp, setPlayerHp] = useState(PLAYER_MAX_HP);
 
   // Keep refs (read by the animation loop) and state (read by JSX) in sync
   const setOutcomeBoth = useCallback(v => {
@@ -405,6 +581,10 @@ export default function MathKingdom() {
   const setBossHpBoth = useCallback(v => {
     bossHpRef.current = v;
     setBossHp(v);
+  }, []);
+  const setPlayerHpBoth = useCallback(v => {
+    playerHpRef.current = v;
+    setPlayerHp(v);
   }, []);
 
   // ── Animation loop ──────────────────────────
@@ -438,10 +618,46 @@ export default function MathKingdom() {
         }
       }
 
+      // Advance dodge battle box: move heart, spawn/step hazards, check hits
+      if (ph === 'DODGE') {
+        const heart = heartRef.current;
+        const k = keysRef.current;
+        const vx = (k.right ? 1 : 0) - (k.left ? 1 : 0);
+        const vy = (k.down  ? 1 : 0) - (k.up   ? 1 : 0);
+        const mag = Math.hypot(vx, vy) || 1;
+        heart.x = Math.min(BOX.x + BOX.w - HEART_R, Math.max(BOX.x + HEART_R, heart.x + (vx / mag) * HEART_SPEED * dt));
+        heart.y = Math.min(BOX.y + BOX.h - HEART_R, Math.max(BOX.y + HEART_R, heart.y + (vy / mag) * HEART_SPEED * dt));
+
+        invulnRef.current = Math.max(0, invulnRef.current - dt * 1000);
+        dodgeSpawnRef.current -= dt * 1000;
+        if (dodgeSpawnRef.current <= 0) {
+          rocksRef.current.push(spawnRock(BOX, !!lvl.boss));
+          dodgeSpawnRef.current = lvl.boss ? 950 : 430;
+        }
+        const hit = stepDodge(BOX, heart, rocksRef.current, dt);
+        if (hit && invulnRef.current <= 0) {
+          invulnRef.current = INVULN_MS;
+          const nextHp = Math.max(0, playerHpRef.current - 1);
+          playerHpRef.current = nextHp;
+          setPlayerHp(nextHp);
+          ptclsRef.current.push(...mkHitSpark(heart.x, heart.y));
+          shakeRef.current = { timer: 200, mag: 5 };
+        }
+        dodgeElapsedRef.current += dt * 1000;
+      }
+
+      // Screen shake decay
+      shakeRef.current.timer = Math.max(0, shakeRef.current.timer - dt * 1000);
+      const shakeMag = shakeRef.current.timer > 0 ? shakeRef.current.mag : 0;
+      const sx = shakeMag ? (Math.random() - 0.5) * shakeMag : 0;
+      const sy = shakeMag ? (Math.random() - 0.5) * shakeMag : 0;
+
       // ── Draw ──────────────────────────────
       ctx.clearRect(0, 0, GW, GH);
+      ctx.save();
+      ctx.translate(sx, sy);
       drawBg(ctx);
-      drawWall(ctx, lvl);
+      drawWall(ctx, lvl, ts);
       if (lvl.boss) {
         drawBoss(ctx, lvl, bossHpRef.current);
       } else {
@@ -472,6 +688,12 @@ export default function MathKingdom() {
 
       renderParticles(ctx, ptclsRef.current);
       drawLabels(ctx, lvl);
+      drawHpHud(ctx, playerHpRef.current, PLAYER_MAX_HP);
+
+      if (ph === 'DODGE' || ph === 'GAME_OVER') {
+        drawDodgeBox(ctx, BOX, heartRef.current, rocksRef.current, invulnRef.current, playerHpRef.current);
+      }
+      ctx.restore();
 
       rafRef.current = requestAnimationFrame(loop);
     }
@@ -488,6 +710,32 @@ export default function MathKingdom() {
     probRef.current = prob;
   }, [prob]);
 
+  // ── Keyboard input for the dodge battle box (arrows / WASD) ──
+  useEffect(() => {
+    const KEYMAP = {
+      ArrowUp: 'up', w: 'up', W: 'up',
+      ArrowDown: 'down', s: 'down', S: 'down',
+      ArrowLeft: 'left', a: 'left', A: 'left',
+      ArrowRight: 'right', d: 'right', D: 'right',
+    };
+    const onDown = e => {
+      const dir = KEYMAP[e.key];
+      if (!dir) return;
+      if (e.key.startsWith('Arrow')) e.preventDefault();
+      keysRef.current[dir] = true;
+    };
+    const onUp = e => {
+      const dir = KEYMAP[e.key];
+      if (dir) keysRef.current[dir] = false;
+    };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+    };
+  }, []);
+
   // ── Recompute preview trajectory ────────────
   useEffect(() => {
     const v0 = v0From(parseFloat(cwRef.current), prob.ans);
@@ -497,6 +745,34 @@ export default function MathKingdom() {
       trajRef.current = [];
     }
   }, [cw, angle, prob, phase]);
+
+  // Open the Undertale-style dodge box: the target/boss counterattacks
+  // every turn regardless of the shot's outcome. `pendingResult` is applied
+  // once the dodge session ends (RESULT), unless the player's HP hit 0.
+  const beginDodge = useCallback((pendingResult) => {
+    const lvl = LEVELS[levelIdxRef.current];
+    heartRef.current = { x: BOX.x + BOX.w / 2, y: BOX.y + BOX.h / 2 };
+    rocksRef.current = [];
+    keysRef.current = {};
+    dodgeSpawnRef.current = 350;
+    dodgeElapsedRef.current = 0;
+    invulnRef.current = 0;
+    pendingResultRef.current = pendingResult;
+    phaseRef.current = 'DODGE';
+    setPhase('DODGE');
+    const duration = DODGE_BASE_MS + (lvl.boss ? 1400 : 0);
+    toRef.current = setTimeout(() => {
+      rocksRef.current = [];
+      if (playerHpRef.current <= 0) {
+        phaseRef.current = 'GAME_OVER';
+        setPhase('GAME_OVER');
+      } else {
+        phaseRef.current = 'RESULT';
+        setPhase('RESULT');
+        setResult(pendingResultRef.current);
+      }
+    }, duration);
+  }, []);
 
   // ── Handlers ────────────────────────────────
   const handleSetWeight = useCallback(() => {
@@ -574,16 +850,16 @@ export default function MathKingdom() {
         const dir = lx < lvl.targetX ? 'short' : 'long';
         msg = `Landed ${d}px ${dir} of the target. Check your counterweight math!`;
       }
-      phaseRef.current = 'RESULT';
-      setPhase('RESULT');
-      setResult({ type, msg });
+      // The target/boss always counterattacks — dodge before the result shows
+      beginDodge({ type, msg });
     }, dur);
-  }, [setOutcomeBoth, setBossHpBoth]);
+  }, [setOutcomeBoth, setBossHpBoth, beginDodge]);
 
   const goAim = useCallback(() => {
     armPRef.current  = 0;
     projIRef.current = 0;
     ptclsRef.current = [];
+    rocksRef.current = [];
     setOutcomeBoth(null);
     setResult(null);
     const v0 = v0From(parseFloat(cwRef.current), probRef.current.ans);
@@ -596,6 +872,7 @@ export default function MathKingdom() {
     armPRef.current  = 0;
     projIRef.current = 0;
     ptclsRef.current = [];
+    rocksRef.current = [];
     setOutcomeBoth(null);
     trajRef.current = [];
     setResult(null);
@@ -614,6 +891,7 @@ export default function MathKingdom() {
     armPRef.current  = 0;
     projIRef.current = 0;
     ptclsRef.current = [];
+    rocksRef.current = [];
     setOutcomeBoth(null);
     trajRef.current  = [];
     setProb(newProb(lvl)); setCw(''); setAngle(55); setResult(null);
@@ -626,8 +904,9 @@ export default function MathKingdom() {
   }, [startLevel]);
 
   const resetRun = useCallback(() => {
+    setPlayerHpBoth(PLAYER_MAX_HP);
     startLevel(0);
-  }, [startLevel]);
+  }, [startLevel, setPlayerHpBoth]);
 
   // Next boss strike: keep boss HP and the player's dialed-in angle,
   // deal a harder problem (escalates with hits already landed)
@@ -637,6 +916,7 @@ export default function MathKingdom() {
     armPRef.current  = 0;
     projIRef.current = 0;
     ptclsRef.current = [];
+    rocksRef.current = [];
     setOutcomeBoth(null);
     trajRef.current  = [];
     setProb(newProb(lvl, lvl.hp - bossHpRef.current));
@@ -644,6 +924,24 @@ export default function MathKingdom() {
     phaseRef.current = 'PROBLEM';
     setPhase('PROBLEM');
   }, [setOutcomeBoth]);
+
+  // Game over: the target/boss whittled the player's HP to 0 mid-dodge.
+  // Restore HP and retry the same level (boss HP and tier progress kept).
+  const retryAfterGameOver = useCallback(() => {
+    const lvl = LEVELS[levelIdxRef.current];
+    setPlayerHpBoth(PLAYER_MAX_HP);
+    cwRef.current    = '';
+    armPRef.current  = 0;
+    projIRef.current = 0;
+    ptclsRef.current = [];
+    rocksRef.current = [];
+    setOutcomeBoth(null);
+    trajRef.current  = [];
+    setProb(newProb(lvl, lvl.boss ? lvl.hp - bossHpRef.current : 0));
+    setCw(''); setResult(null);
+    phaseRef.current = 'PROBLEM';
+    setPhase('PROBLEM');
+  }, [setOutcomeBoth, setPlayerHpBoth]);
 
   // ── Styles ──────────────────────────────────
   const dlg = {
@@ -693,6 +991,13 @@ export default function MathKingdom() {
 
       {/* Dialogue box */}
       <div style={dlg}>
+
+        <div style={{
+          fontSize: 11, letterSpacing: 1, marginBottom: 8,
+          color: playerHp <= 1 ? '#ff6060' : '#999',
+        }}>
+          {'❤ '.repeat(playerHp)}{'♡ '.repeat(PLAYER_MAX_HP - playerHp)}HP
+        </div>
 
         {/* ── PROBLEM ── */}
         {phase === 'PROBLEM' && (
@@ -786,6 +1091,32 @@ export default function MathKingdom() {
             {outcome === 'CATASTROPHIC'
               ? '💥 STRUCTURAL FAILURE — CATASTROPHIC MISFIRE!'
               : '🚀 LAUNCHING...'}
+          </div>
+        )}
+
+        {/* ── DODGE ── */}
+        {phase === 'DODGE' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ color: C.orange, fontSize: 14, letterSpacing: 2 }}>
+              ⚠ {curLevel.boss ? BOSS_NAME : 'THE TARGET'} STRIKES BACK!
+            </div>
+            <div style={{ fontSize: 12, color: '#999' }}>
+              Use ↑↓←→ or WASD to steer your soul clear of the counterattack.
+            </div>
+          </div>
+        )}
+
+        {/* ── GAME OVER ── */}
+        {phase === 'GAME_OVER' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ color: '#ff6060', fontSize: 15, letterSpacing: 2 }}>
+              💔 YOUR SOUL SHATTERS! The counterattack was too much to dodge.
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={retryAfterGameOver} style={btn('#ff6060', false)}>
+                ↺ RISE AGAIN
+              </button>
+            </div>
           </div>
         )}
 
