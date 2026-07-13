@@ -28,32 +28,47 @@ const DODGE_BOSS_MS = 4800;
 const ROCK_R        = 8;
 const ATTACK_MS     = 900; // brief PLAYER_ATTACK / fizzle phase length
 
+// Clamp a heart position into the dodge box — shared by keyboard movement
+// and pointer/touch dragging so both inputs are bounded identically.
+const clampHeartX = x => Math.min(BOX.x + BOX.w - HEART_R, Math.max(BOX.x + HEART_R, x));
+const clampHeartY = y => Math.min(BOX.y + BOX.h - HEART_R, Math.max(BOX.y + HEART_R, y));
+
 const ENEMY_X = 560;
+
+// ── Undertale-style timed strike (TIMING phase) ──
+const TIMING_MS     = 4000; // window to strike before auto-swing
+const STRIKE_FREEZE_MS = 350; // brief pause showing the frozen marker before resolving
+const METER_W = 300, METER_H = 28;
+const METER_AMPLITUDE = 130;                 // px either side of center
+const METER_PERIOD_S  = 0.9;                 // ~1 full sweep per 900ms
+const METER_SPEED = (2 * Math.PI) / METER_PERIOD_S;
+const METER_Y = 150;
+const ZONE_W_NORMAL = 40, ZONE_W_BOSS = 28;  // gold center-zone width
 
 // ──────────────────────────────────────────────
 // ENCOUNTER TABLE — the extension point for future dungeon tiers.
 // ──────────────────────────────────────────────
 const ENEMIES = [
   {
-    key: 'sprite', name: 'PEBBLE SPRITE', hp: 2, a: [3, 6], b: [2, 5],
+    key: 'sprite', name: 'PEBBLE SPRITE', hp: 3, a: [3, 6], b: [2, 5],
     rockVy: [120, 170], spawnMs: 520,
     reward: { stone: 8, gold: 2 },
     flavor: 'A PEBBLE SPRITE skitters out of the rubble, clattering its stony limbs!',
   },
   {
-    key: 'bat', name: 'BRICK BAT', hp: 2, a: [4, 7], b: [3, 6],
+    key: 'bat', name: 'BRICK BAT', hp: 4, a: [4, 7], b: [3, 6],
     rockVy: [160, 220], spawnMs: 400,
     reward: { stone: 10, gold: 3 },
     flavor: 'A BRICK BAT swoops down from the rafters, brick wings clacking overhead!',
   },
   {
-    key: 'knight', name: 'RUBBLE KNIGHT', hp: 3, a: [6, 9], b: [4, 8],
+    key: 'knight', name: 'RUBBLE KNIGHT', hp: 5, a: [6, 9], b: [4, 8],
     rockVy: [150, 230], spawnMs: 300,
     reward: { stone: 14, gold: 5 },
     flavor: 'A RUBBLE KNIGHT grinds forward, its cracked shield raised high!',
   },
   {
-    key: 'golem', name: 'GOLEM', hp: 4, a: [7, 12], b: [6, 9],
+    key: 'golem', name: 'GOLEM', hp: 7, a: [7, 12], b: [6, 9],
     boss: true, spawnMs: 950,
     reward: { stone: 30, gold: 15, wood: 10 },
     flavor: 'The dungeon floor QUAKES — the GOLEM rises, eyes blazing red!',
@@ -128,7 +143,7 @@ function drawEnemyPips(ctx, bx, topY, name, hp, maxHp) {
   const pipW = 14, gap = 6;
   const w = maxHp * pipW + (maxHp - 1) * gap;
   const x0 = ~~(bx - w / 2), y0 = topY;
-  ctx.font = 'bold 10px "Courier New",monospace';
+  ctx.font = 'bold 12px "Courier New",monospace';
   ctx.fillStyle = C.gold;
   ctx.fillText(name, x0, y0 - 8);
   for (let i = 0; i < maxHp; i++) {
@@ -212,14 +227,25 @@ function drawGolem(ctx, bx, by, dmg) {
   if (dmg >= 3) { ctx.fillRect(bx - 2, by - 50, 3, 20); }
 }
 
+// Topmost unscaled y-offset (above `by`/GROUND_Y) each sprite reaches — used
+// to keep the name + HP pips clear of the now-2x-taller art.
+const ENEMY_TOP_UNSCALED = { sprite: 28, bat: 36, knight: 54, golem: 56 };
+
 function drawEnemy(ctx, enemy, hp, ts) {
   const bx = ENEMY_X, by = GROUND_Y;
   const dmg = enemy.hp - hp;
-  if (enemy.key === 'sprite')      drawSprite(ctx, bx, by, dmg);
-  else if (enemy.key === 'bat')    drawBat(ctx, bx, by, dmg, ts);
-  else if (enemy.key === 'knight') drawKnight(ctx, bx, by, dmg);
-  else                             drawGolem(ctx, bx, by, dmg);
-  drawEnemyPips(ctx, bx, by - 90, enemy.name, hp, enemy.hp);
+  // Draw every enemy at 2x scale, anchored so feet stay at GROUND_Y: translate
+  // to the local origin, scale, then draw the existing art at (0, 0).
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.scale(2, 2);
+  if (enemy.key === 'sprite')      drawSprite(ctx, 0, 0, dmg);
+  else if (enemy.key === 'bat')    drawBat(ctx, 0, 0, dmg, ts);
+  else if (enemy.key === 'knight') drawKnight(ctx, 0, 0, dmg);
+  else                             drawGolem(ctx, 0, 0, dmg);
+  ctx.restore();
+  const topY = by - ENEMY_TOP_UNSCALED[enemy.key] * 2 - 34;
+  drawEnemyPips(ctx, bx, topY, enemy.name, hp, enemy.hp);
 }
 
 function drawHud(ctx, enemy, idx) {
@@ -240,6 +266,27 @@ function drawSlash(ctx, bx, by, t) {
   ctx.fillRect(bx - 34, by - 42 + t * 20, 74, 6);
   ctx.fillRect(bx - 20, by - 20 + t * 24, 56, 6);
   ctx.globalAlpha = 1;
+}
+
+// ── TIMING phase: sweeping strike meter (Undertale-style timed attack) ──
+function drawTimingMeter(ctx, markerX, zoneW, markerColor) {
+  const x0 = ~~(GW / 2 - METER_W / 2), y0 = METER_Y;
+
+  ctx.font = '11px "Courier New",monospace';
+  ctx.fillStyle = C.gold;
+  ctx.fillText('TAP ⚔ WHEN THE MARKER HITS GOLD!', x0, y0 - 12);
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x0, y0, METER_W, METER_H);
+
+  ctx.fillStyle = C.gold;
+  ctx.fillRect(~~(GW / 2 - zoneW / 2), y0, zoneW, METER_H);
+
+  ctx.strokeStyle = C.white; ctx.lineWidth = 3;
+  ctx.strokeRect(x0 + 1.5, y0 + 1.5, METER_W - 3, METER_H - 3);
+
+  ctx.fillStyle = markerColor;
+  ctx.fillRect(~~(markerX - 3), y0 - 4, 6, METER_H + 8);
 }
 
 // ── Undertale-style dodge battle box (ported verbatim, numbers unchanged) ──
@@ -354,6 +401,18 @@ export default function BattleMode({ onReward, onExit }) {
   const shakeRef     = useRef({ timer: 0, mag: 0 });
   const onRewardRef  = useRef(onReward);
 
+  // Pointer/touch drag steering for the dodge box (relative-drag scheme)
+  const dragActiveRef = useRef(false);
+  const dragLastRef    = useRef({ x: 0, y: 0 });
+
+  // TIMING phase — sweeping strike meter
+  const timingStartRef    = useRef(0);
+  const markerXRef        = useRef(GW / 2);
+  const timingFrozenRef   = useRef(false);
+  const timingToRef       = useRef(null); // 4s auto-swing timeout
+  const freezeToRef       = useRef(null); // brief freeze-then-resolve timeout
+  const strikeCriticalRef = useRef(null); // null while sweeping; bool once struck
+
   // ── React state drives UI re-renders only ──
   const [phase, setPhase]       = useState('PROBLEM');
   const [enemyIdx, setEnemyIdx] = useState(0);
@@ -389,14 +448,19 @@ export default function BattleMode({ onReward, onExit }) {
         atkTimerRef.current = Math.max(0, atkTimerRef.current - dt * 1000);
       }
 
+      if (ph === 'TIMING' && !timingFrozenRef.current) {
+        const t = (ts - timingStartRef.current) / 1000;
+        markerXRef.current = GW / 2 + METER_AMPLITUDE * Math.sin(t * METER_SPEED);
+      }
+
       if (ph === 'DODGE') {
         const heart = heartRef.current;
         const k = keysRef.current;
         const vx = (k.right ? 1 : 0) - (k.left ? 1 : 0);
         const vy = (k.down ? 1 : 0) - (k.up ? 1 : 0);
         const mag = Math.hypot(vx, vy) || 1;
-        heart.x = Math.min(BOX.x + BOX.w - HEART_R, Math.max(BOX.x + HEART_R, heart.x + (vx / mag) * HEART_SPEED * dt));
-        heart.y = Math.min(BOX.y + BOX.h - HEART_R, Math.max(BOX.y + HEART_R, heart.y + (vy / mag) * HEART_SPEED * dt));
+        heart.x = clampHeartX(heart.x + (vx / mag) * HEART_SPEED * dt);
+        heart.y = clampHeartY(heart.y + (vy / mag) * HEART_SPEED * dt);
 
         invulnRef.current = Math.max(0, invulnRef.current - dt * 1000);
         dodgeSpawnRef.current -= dt * 1000;
@@ -439,6 +503,14 @@ export default function BattleMode({ onReward, onExit }) {
       if (ph === 'DODGE' || ph === 'GAME_OVER') {
         drawDodgeBox(ctx, BOX, heartRef.current, rocksRef.current, invulnRef.current, playerHpRef.current);
       }
+
+      if (ph === 'TIMING') {
+        const zoneW = enemy.boss ? ZONE_W_BOSS : ZONE_W_NORMAL;
+        const markerColor = strikeCriticalRef.current === true ? C.green
+          : strikeCriticalRef.current === false ? C.red
+          : C.white;
+        drawTimingMeter(ctx, markerXRef.current, zoneW, markerColor);
+      }
       ctx.restore();
 
       rafRef.current = requestAnimationFrame(loop);
@@ -448,6 +520,8 @@ export default function BattleMode({ onReward, onExit }) {
     return () => {
       cancelAnimationFrame(rafRef.current);
       clearTimeout(toRef.current);
+      clearTimeout(timingToRef.current);
+      clearTimeout(freezeToRef.current);
     };
   }, []);
 
@@ -475,6 +549,36 @@ export default function BattleMode({ onReward, onExit }) {
       window.removeEventListener('keydown', onDown);
       window.removeEventListener('keyup', onUp);
     };
+  }, []);
+
+  // ── Touch/pointer drag steering for the dodge box (mobile) ──
+  // Relative-drag: the finger doesn't need to be on the heart, any drag
+  // anywhere on the canvas nudges the heart by the same delta. All state
+  // lives in refs — no re-renders per pointer-move event.
+  const onDodgePointerDown = useCallback((e) => {
+    dragActiveRef.current = true;
+    dragLastRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const onDodgePointerMove = useCallback((e) => {
+    if (!dragActiveRef.current) return;
+    const last = dragLastRef.current;
+    dragLastRef.current = { x: e.clientX, y: e.clientY };
+    if (phaseRef.current !== 'DODGE') return;
+    const canvas = cvsRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const dx = (e.clientX - last.x) * scaleX;
+    const dy = (e.clientY - last.y) * scaleY;
+    const heart = heartRef.current;
+    heart.x = clampHeartX(heart.x + dx);
+    heart.y = clampHeartY(heart.y + dy);
+  }, []);
+
+  const onDodgePointerUp = useCallback(() => {
+    dragActiveRef.current = false;
   }, []);
 
   // Open the dodge box: the enemy always counterattacks, win or lose the turn.
@@ -514,29 +618,76 @@ export default function BattleMode({ onReward, onExit }) {
     setPhase('VICTORY');
   }, []);
 
+  // Runs the familiar PLAYER_ATTACK slash/shake/particles for a resolved
+  // TIMING strike (critical, normal, or a late auto-swing), then continues
+  // into the normal flow (VICTORY check -> DODGE).
+  const resolveStrike = useCallback((damage, msg, critical) => {
+    atkTimerRef.current = ATTACK_MS;
+    shakeRef.current = { timer: 260, mag: critical ? 6 : 4 };
+    ptclsRef.current = mkParticles(ENEMY_X, GROUND_Y - 40, {
+      n: critical ? 24 : 16, colors: [C.white, C.gold], vx: 200, vyMin: 80, vyMax: 240,
+      size: critical ? 9 : 7,
+    });
+    setAtkResultBoth({ correct: true, msg });
+    phaseRef.current = 'PLAYER_ATTACK';
+    setPhase('PLAYER_ATTACK');
+    toRef.current = setTimeout(() => {
+      const nh = Math.max(0, enemyHpRef.current - damage);
+      setEnemyHpBoth(nh);
+      if (nh <= 0) {
+        goVictory();
+      } else {
+        beginDodge();
+      }
+    }, ATTACK_MS);
+  }, [setAtkResultBoth, setEnemyHpBoth, goVictory, beginDodge]);
+
+  // Player taps/presses STRIKE during TIMING: freeze the marker, decide
+  // CRITICAL (inside the gold zone) vs a normal hit, then resolve.
+  const strike = useCallback(() => {
+    if (phaseRef.current !== 'TIMING' || timingFrozenRef.current) return;
+    clearTimeout(timingToRef.current);
+    timingFrozenRef.current = true;
+    const markerPos = markerXRef.current;
+    const enemy = ENEMIES[enemyIdxRef.current];
+    const zoneW = enemy.boss ? ZONE_W_BOSS : ZONE_W_NORMAL;
+    const critical = Math.abs(markerPos - GW / 2) <= zoneW / 2;
+    strikeCriticalRef.current = critical;
+    const damage = critical ? 2 : 1;
+    const msg = critical ? '⚡ CRITICAL! A perfect strike!' : 'Your math strikes true!';
+    freezeToRef.current = setTimeout(() => resolveStrike(damage, msg, critical), STRIKE_FREEZE_MS);
+  }, [resolveStrike]);
+
+  // Player didn't strike within the window: auto-swing for a glancing 1-damage blow.
+  const autoSwing = useCallback(() => {
+    if (phaseRef.current !== 'TIMING' || timingFrozenRef.current) return;
+    timingFrozenRef.current = true;
+    strikeCriticalRef.current = false;
+    resolveStrike(1, 'You swing late — a glancing blow!', false);
+  }, [resolveStrike]);
+
+  // Correct answer: open the TIMING phase (math already proved correct —
+  // timing can only affect damage AMOUNT, never gate whether damage happens).
+  const beginTiming = useCallback(() => {
+    timingStartRef.current = tsRef.current ?? performance.now();
+    timingFrozenRef.current = false;
+    strikeCriticalRef.current = null;
+    markerXRef.current = GW / 2;
+    ptclsRef.current = [];
+    setAtkResultBoth(null);
+    phaseRef.current = 'TIMING';
+    setPhase('TIMING');
+    clearTimeout(timingToRef.current);
+    timingToRef.current = setTimeout(() => autoSwing(), TIMING_MS);
+  }, [setAtkResultBoth, autoSwing]);
+
   const submitAnswer = useCallback(() => {
     const entered = Number(ansRef.current);
     const correct = probRef.current.ans;
     ptclsRef.current = [];
 
     if (entered === correct) {
-      atkTimerRef.current = ATTACK_MS;
-      shakeRef.current = { timer: 260, mag: 4 };
-      ptclsRef.current = mkParticles(ENEMY_X, GROUND_Y - 40, {
-        n: 16, colors: [C.white, C.gold], vx: 200, vyMin: 80, vyMax: 240, size: 7,
-      });
-      setAtkResultBoth({ correct: true, msg: 'Your math strikes true!' });
-      phaseRef.current = 'PLAYER_ATTACK';
-      setPhase('PLAYER_ATTACK');
-      toRef.current = setTimeout(() => {
-        const nh = Math.max(0, enemyHpRef.current - 1);
-        setEnemyHpBoth(nh);
-        if (nh <= 0) {
-          goVictory();
-        } else {
-          beginDodge();
-        }
-      }, ATTACK_MS);
+      beginTiming();
     } else {
       setAtkResultBoth({
         correct: false,
@@ -548,7 +699,24 @@ export default function BattleMode({ onReward, onExit }) {
         beginDodge();
       }, ATTACK_MS);
     }
-  }, [setAtkResultBoth, setEnemyHpBoth, goVictory, beginDodge]);
+  }, [setAtkResultBoth, beginDodge, beginTiming]);
+
+  // ── Space/Enter also strikes, active only during TIMING ──
+  useEffect(() => {
+    const onKeyDown = e => {
+      if (phaseRef.current !== 'TIMING') return;
+      // The Enter that submits the answer flips the phase to TIMING
+      // synchronously and then bubbles here — its target is the number
+      // input. A genuine strike press never originates from an input.
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.key === ' ' || e.key === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        strike();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [strike]);
 
   // Enter an encounter fresh (also used when advancing to the next foe)
   const startEnemy = useCallback((idx) => {
@@ -600,11 +768,16 @@ export default function BattleMode({ onReward, onExit }) {
       {/* Game canvas */}
       <canvas
         ref={cvsRef} width={GW} height={GH}
+        onPointerDown={onDodgePointerDown}
+        onPointerMove={onDodgePointerMove}
+        onPointerUp={onDodgePointerUp}
+        onPointerCancel={onDodgePointerUp}
         style={{
           display: 'block',
           border: `3px solid ${C.dlgBdr}`,
           imageRendering: 'pixelated',
           maxWidth: '100%',
+          touchAction: 'none',
         }}
       />
 
@@ -649,6 +822,23 @@ export default function BattleMode({ onReward, onExit }) {
           </div>
         )}
 
+        {/* ── TIMING (timed strike after a correct answer) ── */}
+        {phase === 'TIMING' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ color: C.gold, fontSize: 14, letterSpacing: 2 }}>
+              ⚔ TIME YOUR STRIKE!
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={strike}
+                style={{ ...btnStyle(C.orange, true), fontSize: 18, padding: '10px 28px' }}
+              >
+                ⚔ STRIKE!
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── PLAYER_ATTACK (correct hit or wrong-answer fizzle) ── */}
         {phase === 'PLAYER_ATTACK' && atkResult && (
           <div style={{
@@ -666,7 +856,7 @@ export default function BattleMode({ onReward, onExit }) {
               ⚠ {enemy.name} STRIKES BACK!
             </div>
             <div style={{ fontSize: 12, color: '#999' }}>
-              Use ↑↓←→ or WASD to steer your soul clear of the counterattack.
+              Use ↑↓←→ / WASD — or drag anywhere on the screen.
             </div>
           </div>
         )}
