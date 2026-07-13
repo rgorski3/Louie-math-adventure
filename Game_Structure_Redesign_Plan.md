@@ -56,23 +56,31 @@ Implements the alpha slice of `Dungeon_Progression_Specification.md`:
 ### Turn loop (per spec)
 1. Math problem displayed (multiplication, difficulty ramps per enemy)
 2. Player types answer
-3. **Correct** → player attack lands: slash flash + damage number, enemy HP −1
-4. **Wrong** → attack fizzles; the turn is not skipped-free — the enemy still attacks
-5. **Enemy always counterattacks** → Undertale dodge box (moved verbatim from the
-   old trebuchet DODGE phase): steer the soul heart with arrows/WASD
+3. **Correct** → Undertale-style timed strike: a marker sweeps across a meter;
+   tap ⚔ STRIKE (or Space/Enter) when it crosses the gold center zone —
+   gold = CRITICAL (2 damage), outside = normal strike (1 damage), no press
+   within 4s = late glancing blow (1 damage). Timing changes the damage
+   *amount* only — it can never create damage without a correct answer.
+4. **Wrong** → attack fizzles, no meter, no damage; the turn is not
+   skipped-free — the enemy still attacks
+5. **Enemy always counterattacks** → Undertale dodge box (moved verbatim from
+   the old trebuchet DODGE phase): steer the soul heart with arrows/WASD, or
+   drag anywhere on the canvas on touch screens
 6. Repeat until enemy HP = 0 (victory, key charge + material drop) or player HP = 0
    (soul shatters → retry the same enemy with restored HP; dungeon position kept)
 
 ### Encounters
 | # | Enemy | HP | Problems | Attack pattern |
 |---|---|---|---|---|
-| 1 | Pebble Sprite | 2 | 3–6 × 2–5 | slow falling rubble |
-| 2 | Brick Bat | 2 | 4–7 × 3–6 | faster rubble, more spawns |
-| 3 | Rubble Knight | 3 | 6–9 × 4–8 | dense mixed rubble |
-| Boss | **GOLEM** | 4 | 7–12 × 6–9 | telegraphed vertical fist-slam columns (per spec) |
+| 1 | Pebble Sprite | 3 | 3–6 × 2–5 | slow falling rubble |
+| 2 | Brick Bat | 4 | 4–7 × 3–6 | faster rubble, more spawns |
+| 3 | Rubble Knight | 5 | 6–9 × 4–8 | dense mixed rubble |
+| Boss | **GOLEM** | 7 | 7–12 × 6–9 | telegraphed vertical fist-slam columns; tighter crit zone |
 
 - Player HP: 3 hearts, invulnerability frames on hit — identical numbers to PR #4.
 - Non-bypassable math: damage is only dealt on an exactly correct answer.
+- Mobile-first ergonomics: enemies drawn at 2× pixel scale (readable on a
+  phone-width canvas), thumb-sized STRIKE button, drag-to-dodge touch input.
 - Clearing the section shows key-charge earned and returns to the hub.
 - Future tiers (Fire/Ice/Poison/Wind/Red Eye of Chaos) slot in as more encounter
   lists — the encounter array is the extension point.
